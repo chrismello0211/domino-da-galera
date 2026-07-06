@@ -436,8 +436,21 @@ input{font-family:inherit;}
 .mt .half{position:relative;flex:1;}
 .mt .mid{position:absolute;top:50%;left:13%;right:13%;height:2.5px;background:var(--stoneline);transform:translateY(-50%);}
 
+/* burrinho & 1x1 */
+#seatGrid.n2{grid-template-columns:1fr;}
+#dorme .dbacks{display:flex;gap:3px;justify-content:center;}
+#dorme .dlabel{display:block;margin-top:3px;}
+#dorme.buyable{cursor:pointer;pointer-events:auto;animation:buyPulse 1.1s ease-in-out infinite;}
+@keyframes buyPulse{
+  0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(242,169,59,0));}
+  50%{transform:scale(1.12);filter:drop-shadow(0 0 12px rgba(242,169,59,.85));}
+}
+.ht.bought{animation:boughtPop .38s cubic-bezier(.34,1.56,.64,1);}
+@keyframes boughtPop{0%{transform:scale(.3) translateY(18px);opacity:0;}100%{transform:scale(1) translateY(0);opacity:1;}}
+#btnMode{max-width:100%;white-space:normal;line-height:1.25;}
+
 /* arrasto de pedras */
-.ht{touch-action:none;}
+.ht{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 .ht.float{position:fixed;z-index:60;margin:0;pointer-events:none;
   transform:rotate(var(--hrot,0deg)) scale(1.1);
   box-shadow:0 14px 28px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.7);}
@@ -676,8 +689,7 @@ input{font-family:inherit;}
     <button id="btnCopy" class="sharebtn">📋 Copiar convite</button>
   </div>
   <div id="modePills">
-    <button class="pill" data-per="6">6 pedras + dorme</button>
-    <button class="pill" data-per="7">7 pedras, sem dorme</button>
+    <button class="pill on" id="btnMode">👥 4 na mesa · 6 pedras + dorme</button>
   </div>
   <div class="teamtags"><span class="t0">DUPLA AMARELA</span><span class="t1">DUPLA AZUL</span></div>
   <div id="seatGrid"></div>
@@ -789,30 +801,43 @@ const CORE = (() => {
     return { score: [0, 0], target: target || 6, roundNum: 0, nextStarter: null };
   }
 
-  // Nova mão. cfg.per = pedras por jogador (6 = dorme de 4 · 7 = sem dorme).
-  // 1ª mão: quem tem a maior carroça começa — e é obrigado a sair com ela.
+  // Nova mão. cfg = { per: pedras por jogador, n: 2 ou 4 na mesa,
+  //                    buy: burrinho (compra do dorme até encaixar) }.
+  // 1ª mão: a maior carroça abre — obrigada. Se ninguém pegou carroça
+  // (dá pra acontecer no 1x1), abre a pedra mais pesada.
   function newRound(match, cfg){
+    const n   = (cfg && cfg.n) === 2 ? 2 : 4;
     const per = (cfg && cfg.per) === 7 ? 7 : 6;
+    const buy = !!(cfg && cfg.buy);
     const deck = shuffle(makeSet());
-    const hands = [0, 1, 2, 3].map(p => deck.slice(p * per, (p + 1) * per));
-    const dorme = deck.slice(per * 4);
+    const hands = Array.from({ length: n }, (_, p) => deck.slice(p * per, (p + 1) * per));
+    const dorme = deck.slice(per * n);
     match.roundNum++;
     let starter = match.nextStarter, forced = null;
     if (match.roundNum === 1 || starter == null) {
       outer:
       for (let v = 6; v >= 0; v--) {
-        for (let p = 0; p < 4; p++) {
+        for (let p = 0; p < n; p++) {
           const t = hands[p].find(x => x.a === v && x.b === v);
           if (t) { starter = p; forced = t.id; break outer; }
         }
       }
+      if (starter == null) {
+        let bp = 0, bt = hands[0][0];
+        for (let p = 0; p < n; p++) for (const t of hands[p]) {
+          const melhor = (t.a + t.b) > (bt.a + bt.b) ||
+            ((t.a + t.b) === (bt.a + bt.b) && Math.max(t.a, t.b) > Math.max(bt.a, bt.b));
+          if (melhor) { bp = p; bt = t; }
+        }
+        starter = bp; forced = bt.id;
+      }
     }
     return {
-      per, hands, dorme,
+      per, n, buy, hands, dorme,
       line: [], anchor: 0,
       turn: starter, starter, forced,
       passes: 0,
-      passedOn: [new Set(), new Set(), new Set(), new Set()],
+      passedOn: Array.from({ length: n }, () => new Set()),
       lastPlay: null, finished: null, plays: 0
     };
   }
@@ -838,7 +863,7 @@ const CORE = (() => {
     return mv;
   }
 
-  function endTurn(st){ if (!st.finished) st.turn = (st.turn + 1) % 4; }
+  function endTurn(st){ if (!st.finished) st.turn = (st.turn + 1) % (st.n || 4); }
 
   function applyPlay(st, p, tileId, end){
     const h = st.hands[p];
@@ -883,9 +908,10 @@ const CORE = (() => {
     const e = ends(st);
     if (e) { st.passedOn[p].add(e.L); st.passedOn[p].add(e.R); }
     st.passes++;
-    if (st.passes >= 4) {
+    if (st.passes >= (st.n || 4)) {
       const sums = st.hands.map(handSum);
-      const tA = sums[0] + sums[2], tB = sums[1] + sums[3];
+      const tA = st.n === 2 ? sums[0] : sums[0] + sums[2];
+      const tB = st.n === 2 ? sums[1] : sums[1] + sums[3];
       const winner = tA < tB ? 0 : (tB < tA ? 1 : null);
       st.finished = { type: 'tranca', sums, team: winner, points: winner == null ? 0 : 1 };
     }
@@ -893,13 +919,26 @@ const CORE = (() => {
     return st.finished;
   }
 
+  // burrinho: compra UMA pedra do dorme (só quando não tem jogada)
+  function applyBuy(st, p){
+    if (!st.buy) throw new Error('essa mesa não é de burrinho');
+    if (st.turn !== p || st.finished) throw new Error('não é sua vez');
+    if (!st.dorme.length) throw new Error('o dorme acabou');
+    if (legalMoves(st, p).length) throw new Error('você tem jogada — não pode comprar');
+    const t = st.dorme.pop();
+    st.hands[p].push(t);
+    st.lastBuy = { p, tileId: t.id };
+    return t;
+  }
+
   // quem começa a próxima mão: quem bateu; na tranca, quem tem menos pontos na mão
   function nextStarterFrom(st){
     if (st.finished.type === 'batida') return st.finished.player;
     const sums = st.finished.sums;
+    const n = st.n || 4;
     let best = null;
-    for (let k = 0; k < 4; k++) {
-      const p = (st.starter + 1 + k) % 4;
+    for (let k = 0; k < n; k++) {
+      const p = (st.starter + 1 + k) % n;
       if (best == null || sums[p] < sums[best]) best = p;
     }
     return best;
@@ -912,7 +951,8 @@ const CORE = (() => {
     if (!mv.length) return null;
     if (mv.length === 1) return { tileId: mv[0].tile.id, end: mv[0].end };
     const e = ends(st);
-    const next = (p + 1) % 4, partner = (p + 2) % 4;
+    const n = st.n || 4;
+    const next = (p + 1) % n, partner = n === 4 ? (p + 2) % 4 : -1;
     let best = null, bs = -1e9;
     for (const m of mv) {
       const t = m.tile;
@@ -928,8 +968,10 @@ const CORE = (() => {
       s += cover * 2.2;                        // manter pontas que eu cubro
       const bn = [nL, nR].filter(v => st.passedOn[next].has(v)).length;
       s += bn === 2 ? 15 : bn * 3.5;           // travar o adversário seguinte
-      const bp = [nL, nR].filter(v => st.passedOn[partner].has(v)).length;
-      s -= bp === 2 ? 12 : bp * 2.5;           // não travar o parceiro
+      if (partner >= 0) {
+        const bp = [nL, nR].filter(v => st.passedOn[partner].has(v)).length;
+        s -= bp === 2 ? 12 : bp * 2.5;         // não travar o parceiro
+      }
       if (rest.length <= 3) {
         s -= [nL, nR].filter(v => !rest.some(x => fits(x, v))).length * 1.6;
       }
@@ -1007,7 +1049,7 @@ const CORE = (() => {
   /* ---------- (de)serialização p/ rede ---------- */
   function pack(st){
     return {
-      per: st.per,
+      per: st.per, n: st.n || 4, buy: st.buy ? 1 : 0,
       hands: st.hands.map(h => h.map(t => t.id)),
       dorme: st.dorme.map(t => t.id),
       line: st.line.map(t => [t.a, t.b, t.id]),
@@ -1015,6 +1057,7 @@ const CORE = (() => {
       forced: st.forced || null, passes: st.passes,
       passedOn: st.passedOn.map(s => [...s]),
       lastPlay: st.lastPlay || null, finished: st.finished || null,
+      lastBuy: st.lastBuy || null,
       plays: st.plays
     };
   }
@@ -1024,24 +1067,26 @@ const CORE = (() => {
     const toArr = v => Array.isArray(v) ? v
       : (v && typeof v === 'object'
           ? Object.keys(v).sort((a, b) => a - b).map(k => v[k]) : []);
-    const idx4 = o => [0, 1, 2, 3].map(i => toArr(o && o[i]));
+    const n = js.n === 2 ? 2 : 4;
+    const idxN = o => Array.from({ length: n }, (_, i) => toArr(o && o[i]));
     const notNil = v => v != null;
     return {
-      per: js.per || 6,
-      hands: idx4(js.hands).map(h => h.filter(notNil).map(byId)),
+      per: js.per || 6, n, buy: !!js.buy,
+      hands: idxN(js.hands).map(h => h.filter(notNil).map(byId)),
       dorme: toArr(js.dorme).filter(notNil).map(byId),
       line: toArr(js.line).filter(notNil).map(t => {
         const u = toArr(t); return { a: u[0], b: u[1], id: u[2] };
       }),
       anchor: js.anchor || 0, turn: js.turn, starter: js.starter,
       forced: js.forced || null, passes: js.passes || 0,
-      passedOn: idx4(js.passedOn).map(a => new Set(a.filter(notNil))),
+      passedOn: idxN(js.passedOn).map(a => new Set(a.filter(notNil))),
       lastPlay: js.lastPlay || null, finished: js.finished || null,
+      lastBuy: js.lastBuy || null,
       plays: js.plays || 0
     };
   }
 
-  return { makeSet, newMatch, newRound, ends, legalMoves, applyPlay, applyPass,
+  return { makeSet, newMatch, newRound, ends, legalMoves, applyPlay, applyPass, applyBuy,
            aiChoose, handSum, nextStarterFrom, layoutChain, isD, pack, unpack };
 })();
 /*CORE-END*/
@@ -1402,14 +1447,16 @@ const view = {
   seats: [null, null, null, null],   // [{name,av,bot,stale}]
   mySeat: 0, phase: 'play', online: false, hostSeat: 0
 };
-const relOf = s => (s - view.mySeat + 4) % 4;
+const relOf = s => (view.st && view.st.n === 2 && s !== view.mySeat)
+  ? 2
+  : (s - view.mySeat + 4) % 4;
 const seatName = s => (view.seats[s] && view.seats[s].name) || '—';
 const seatAv   = s => (view.seats[s] && view.seats[s].av) || 'caramelo';
 
 let busy = false, selected = null, legal = [];
-let handOrder = [], suppressClick = false;
+let handOrder = [], suppressClick = false, poppedId = null;
 function resetHandOrder(){ handOrder = []; }
-let onHumanPlay = null, onHumanPass = null, onBotTake = null; // callbacks do driver ativo
+let onHumanPlay = null, onHumanPass = null, onHumanBuy = null, onBotTake = null; // callbacks do driver ativo
 
 /* ---------- pedaços de pedra ---------- */
 function halfHTML(v){
@@ -1481,8 +1528,13 @@ function renderTop(){
   if (sth.textContent != b) { sth.textContent = b; sth.classList.remove('bump'); void sth.offsetWidth; sth.classList.add('bump'); }
   $('#roundLabel').textContent = view.m.roundNum + 'ª mão';
   $('#targetLabel').textContent = view.m.target || view.cfg.target || 6;
-  $('#pairUs').textContent = seatName(view.mySeat) + ' & ' + seatName((view.mySeat + 2) % 4);
-  $('#pairThem').textContent = seatName((view.mySeat + 1) % 4) + ' & ' + seatName((view.mySeat + 3) % 4);
+  if ((view.st.n || 4) === 2) {
+    $('#pairUs').textContent = seatName(view.mySeat);
+    $('#pairThem').textContent = seatName((view.mySeat + 1) % 2);
+  } else {
+    $('#pairUs').textContent = seatName(view.mySeat) + ' & ' + seatName((view.mySeat + 2) % 4);
+    $('#pairThem').textContent = seatName((view.mySeat + 1) % 4) + ' & ' + seatName((view.mySeat + 3) % 4);
+  }
 }
 
 /* ---------- oponentes (DOM estável p/ balões sobreviverem) ---------- */
@@ -1504,34 +1556,45 @@ function ensureOppDOM(rel){
   el.querySelector('.avslot').style.animationDelay = (rel * 1.4) + 's';
   return el;
 }
+function renderMe(){
+  const me = $('#meAv'); if (!me) return;
+  const av = seatAv(view.mySeat);
+  if (me.dataset.av !== av) {
+    me.dataset.av = av;
+    me.querySelectorAll('svg').forEach(x => x.remove());
+    me.insertAdjacentHTML('afterbegin', avSVG(av));
+  }
+  const nm = $('#meName'); if (nm) nm.textContent = myName || 'Você';
+  me.classList.toggle('turn', !!(view.st && view.st.turn === view.mySeat && !view.st.finished));
+}
+
 function renderOpps(){
   if (!view.st) return;
-  for (let rel = 1; rel <= 3; rel++) {
-    const seat = (view.mySeat + rel) % 4;
+  const n = view.st.n || 4;
+  const fill = (rel, seat) => {
     const el = ensureOppDOM(rel);
+    el.style.display = '';
     el.dataset.seat = seat;
     const p = view.seats[seat] || {};
     el.className = 'opp' + (view.st.turn === seat && !view.st.finished ? ' turn' : '');
     const slot = el.querySelector('.avslot');
     if (slot.dataset.av !== seatAv(seat)) { slot.dataset.av = seatAv(seat); slot.innerHTML = avSVG(seatAv(seat)); }
     el.querySelector('.oname').textContent = seatName(seat) + (p.bot ? ' 🤖' : '');
-    const n = view.st.hands[seat].length;
+    const nn = view.st.hands[seat].length;
     const backs = el.querySelector('.obacks');
-    if (backs.dataset.n != n) { backs.dataset.n = n; backs.innerHTML = '<span class="mback"></span>'.repeat(n); }
+    if (backs.dataset.n != nn) { backs.dataset.n = nn; backs.innerHTML = '<span class="mback"></span>'.repeat(nn); }
     el.querySelector('.zz').classList.toggle('hidden', !p.stale || p.bot);
     el.querySelector('.botTake').classList.toggle('hidden',
       !(view.online && view.mySeat === view.hostSeat && !p.bot && p.stale && !view.st.finished));
+  };
+  if (n === 2) {
+    fill(2, (view.mySeat + 1) % 2);
+    $('#oppLeft').style.display = 'none';
+    $('#oppRight').style.display = 'none';
+  } else {
+    for (let rel = 1; rel <= 3; rel++) fill(rel, (view.mySeat + rel) % 4);
   }
-  // meu cantinho
-  const meP = view.seats[view.mySeat] || {};
-  const meAv = $('#meAv');
-  if (meAv.dataset.av !== seatAv(view.mySeat)) {
-    meAv.dataset.av = seatAv(view.mySeat);
-    meAv.querySelector('svg') && meAv.querySelector('svg').remove();
-    meAv.insertAdjacentHTML('afterbegin', avSVG(seatAv(view.mySeat)));
-  }
-  meAv.classList.toggle('turn', view.st.turn === view.mySeat && !view.st.finished);
-  $('#meName').textContent = meP.name || 'Você';
+  renderMe();
 }
 
 /* ---------- balões ---------- */
@@ -1582,7 +1645,20 @@ function renderBoard(showSlots){
   const chain = $('#chain');
   const hint = $('#boardHint');
   chain.innerHTML = '';
-  $('#dorme').style.display = (st.per === 6) ? '' : 'none';
+  const dm0 = $('#dorme');
+  const temDorme = st.per * (st.n || 4) < 28;
+  dm0.style.display = temDorme ? '' : 'none';
+  if (temDorme) {
+    if (dm0.dataset.dyn !== '1') {
+      dm0.dataset.dyn = '1';
+      dm0.innerHTML = '<span class="dbacks"></span><span class="dlabel">DORME</span>';
+    }
+    const nd = st.dorme.length;
+    const db = dm0.querySelector('.dbacks');
+    if (db.dataset.n != nd) { db.dataset.n = nd; db.innerHTML = '<span class="mback"></span>'.repeat(Math.min(nd, 7)); }
+    const mostraN = st.buy || (st.n || 4) === 2;
+    dm0.querySelector('.dlabel').textContent = 'DORME' + (mostraN ? ' ×' + nd : '');
+  }
   if (!st.line.length) {
     hint.classList.remove('hidden');
     hint.textContent = st.turn === view.mySeat
@@ -1614,7 +1690,7 @@ function renderBoard(showSlots){
   for (const t of tiles) {
     const d = document.createElement('div');
     d.className = 'tile ' + (t.vert ? 'v' : 'h') + (t.id === lastId ? ' last' : '');
-    if (t.id === lastId && !reduceMotion) d.classList.add('pop');
+    if (t.id === lastId && t.id !== poppedId && !reduceMotion) { d.classList.add('pop'); poppedId = t.id; }
     const rot = ((hash(t.id) % 5) - 2) * 0.8;
     d.style.cssText = `left:${t.x * U + 2.5}px; top:${t.y * U + 2.5}px; width:${t.w * U - 5}px; height:${t.h * U - 5}px; --rot:${rot}deg;`;
     d.setAttribute('aria-label', `pedra ${t.v1} e ${t.v2}`);
@@ -1655,6 +1731,7 @@ function orderedHand(){
 /* ---------- minha mão: toque OU arrasto (pra cima = jogar, pro lado = organizar) ---------- */
 function renderHand(dealAnim){
   if (!view.st) return;
+  killFloaters();
   const st = view.st;
   const hb = $('#hand');
   hb.innerHTML = '';
@@ -1670,6 +1747,18 @@ function renderHand(dealAnim){
 
   legal = myTurn ? CORE.legalMoves(st, view.mySeat) : [];
   const playIds = new Set(legal.map(m => m.tile.id));
+
+  const canBuy = myTurn && st.buy && !legal.length && st.dorme.length > 0;
+  const dm = $('#dorme');
+  if (dm) {
+    dm.classList.toggle('buyable', canBuy);
+    dm.onclick = canBuy ? () => { SND.tap(); onHumanBuy && onHumanBuy(); } : null;
+  }
+  const bh = $('#boardHint');
+  if (bh) {
+    if (canBuy) { bh.textContent = 'Sem encaixe — toca no DORME pra comprar 🐴'; bh.classList.remove('hidden'); bh.dataset.buy = '1'; }
+    else if (bh.dataset.buy) { bh.classList.add('hidden'); bh.dataset.buy = ''; }
+  }
   orderedHand().forEach((t, i) => {
     const d = document.createElement('div');
     const can = myTurn && playIds.has(t.id);
@@ -1681,6 +1770,7 @@ function renderHand(dealAnim){
     if (dealAnim && !reduceMotion) d.style.animationDelay = (i * 75) + 'ms';
     else d.style.animation = 'none';
     d.dataset.id = t.id;
+    if (st.lastBuy && st.lastBuy.p === view.mySeat && st.lastBuy.tileId === t.id) d.classList.add('bought');
     d.innerHTML = halfHTML(t.a) + halfHTML(t.b) + '<span class="mid"></span><span class="pin"></span>';
     d.setAttribute('aria-label', `pedra ${t.a} e ${t.b}`);
     d.onclick = () => {
@@ -1700,24 +1790,37 @@ function renderHand(dealAnim){
   });
 }
 
-/* arrasto: decide entre JOGAR (sobe) e ORGANIZAR (pro lado) */
+/* arrasto: decide entre JOGAR (sobe) e ORGANIZAR (pro lado)
+   Blindado pra celular: eventos na JANELA (não na pedra), limpeza
+   automática de fantasmas e clique liberado por timer. */
+function killFloaters(){
+  document.querySelectorAll('.ht.float').forEach(x => { try { x.remove(); } catch (e) {} });
+  document.querySelectorAll('#hand .ht.dragging').forEach(x => x.classList.remove('dragging'));
+  document.querySelectorAll('#chain .ghost.hot').forEach(g => g.classList.remove('hot'));
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) killFloaters(); });
+
+let dragBusy = false;
 function startDrag(ev, el, tile, can, myTurn){
   if (ev.button !== undefined && ev.button !== 0) return;
+  if (dragBusy) return;
+  dragBusy = true;
   const st0 = view.st;
-  const drag = { mode: null, hot: null, clone: null, moved: false };
+  const pid = ev.pointerId;
+  const drag = { mode: null, hot: null, clone: null, moved: false, done: false };
   const sx = ev.clientX, sy = ev.clientY;
-  try { el.setPointerCapture(ev.pointerId); } catch (e) {}
+  try { el.setPointerCapture(pid); } catch (e) {}
 
-  const makeClone = () => {
+  const makeClone = e => {
     const r = el.getBoundingClientRect();
     const c = el.cloneNode(true);
     c.classList.add('float');
-    c.classList.remove('sel', 'dim');
+    c.classList.remove('sel', 'dim', 'playable');
     c.style.width = r.width + 'px'; c.style.height = r.height + 'px';
     c.style.animation = 'none';
     document.body.appendChild(c);
     drag.clone = c;
-    moveClone(ev);
+    moveClone(e);
   };
   const moveClone = e => {
     if (!drag.clone) return;
@@ -1726,6 +1829,8 @@ function startDrag(ev, el, tile, can, myTurn){
   };
 
   const onMove = e => {
+    if (e.pointerId !== pid) return;
+    if (!el.isConnected) return finish(e);          // a mão re-renderizou no meio
     const dx = e.clientX - sx, dy = e.clientY - sy;
     if (!drag.mode) {
       if (Math.hypot(dx, dy) < 12) return;
@@ -1740,12 +1845,12 @@ function startDrag(ev, el, tile, can, myTurn){
         selected = tile.id;
         renderBoard(true);
         el.classList.add('dragging');
-        makeClone();
+        makeClone(e);
         SND.tap();
       } else {
         drag.mode = 'sort';
         el.classList.add('dragging');
-        makeClone();
+        makeClone(e);
       }
       return;
     }
@@ -1762,6 +1867,7 @@ function startDrag(ev, el, tile, can, myTurn){
       drag.hot = hot;
     } else if (drag.mode === 'sort') {
       moveClone(e);
+      if (!el.parentNode) return;
       const sibs = [...el.parentNode.children].filter(x => x !== el);
       let target = null;
       for (const s of sibs) {
@@ -1774,16 +1880,21 @@ function startDrag(ev, el, tile, can, myTurn){
       }
     }
   };
+
   const finish = e => {
-    el.releasePointerCapture && el.releasePointerCapture(ev.pointerId);
-    el.removeEventListener('pointermove', onMove);
-    el.removeEventListener('pointerup', finish);
-    el.removeEventListener('pointercancel', finish);
-    if (drag.clone) drag.clone.remove();
+    if (drag.done) return;
+    drag.done = true;
+    dragBusy = false;
+    window.removeEventListener('pointermove', onMove, true);
+    window.removeEventListener('pointerup', finish, true);
+    window.removeEventListener('pointercancel', finish, true);
+    window.removeEventListener('blur', finish);
+    try { el.releasePointerCapture(pid); } catch (err) {}
+    if (drag.clone) { try { drag.clone.remove(); } catch (err) {} drag.clone = null; }
     el.classList.remove('dragging');
+    document.querySelectorAll('#chain .ghost').forEach(g => g.classList.remove('hot'));
     if (drag.mode === 'play') {
-      document.querySelectorAll('#chain .ghost').forEach(g => g.classList.remove('hot'));
-      if (drag.hot && view.st === st0) {
+      if (drag.hot && view.st === st0 && !busy) {
         vibrate(12);
         onHumanPlay && onHumanPlay(tile.id, drag.hot);
       } else {
@@ -1794,15 +1905,17 @@ function startDrag(ev, el, tile, can, myTurn){
     } else if (drag.mode === 'sort') {
       renderHand();
     }
-    if (!drag.moved) suppressClick = false;
+    setTimeout(() => { suppressClick = false; }, 300);   // solta o clique com folga
   };
-  el.addEventListener('pointermove', onMove);
-  el.addEventListener('pointerup', finish);
-  el.addEventListener('pointercancel', finish);
+
+  window.addEventListener('pointermove', onMove, true);
+  window.addEventListener('pointerup', finish, true);
+  window.addEventListener('pointercancel', finish, true);
+  window.addEventListener('blur', finish);
 }
 
 function renderAll(dealAnim){
-  if (dealAnim) resetHandOrder();
+  if (dealAnim) { resetHandOrder(); poppedId = null; }
   renderTop();
   renderOpps();
   renderBoard(!!selected);
@@ -2054,6 +2167,25 @@ function statsLine(){
   el.textContent = `na sua conta: ${s.v} ${s.v === 1 ? 'vitória' : 'vitórias'} · ${s.d} ${s.d === 1 ? 'derrota' : 'derrotas'}`;
 }
 
+function localHumanBuy(){
+  const st = view.st;
+  if (!LOCAL.on || busy || !st || st.finished || st.turn !== 0) return;
+  if (!st.buy || CORE.legalMoves(st, 0).length || !st.dorme.length) return;
+  CORE.applyBuy(st, 0);
+  SND.deal(1); vibrate(6);
+  renderAll();
+  if (!CORE.legalMoves(st, 0).length && !st.dorme.length) {
+    setTimeout(() => {
+      if (!LOCAL.on || view.st !== st || st.turn !== 0 || st.finished) return;
+      SND.pass(); vibrate([30, 40, 30]);
+      showBubble(0, 'Comprei tudo e nada… passo ✋', 2000);
+      CORE.applyPass(st, 0);
+      renderAll();
+      setTimeout(localTick, 700);
+    }, 600);
+  }
+}
+
 function shuffleFX(){
   if (reduceMotion) return;
   const b = $('#board'); if (!b) return;
@@ -2076,26 +2208,38 @@ function showScreen(id){
   ['menu', 'wait', 'game'].forEach(s => $('#' + s).classList.toggle('hidden', s !== id));
 }
 
+const MODE_LIST = [
+  { lbl: '👥 4 na mesa · 6 pedras + dorme',   cfg: { n: 4, per: 6, buy: false } },
+  { lbl: '👥 4 na mesa · 7 pedras, sem dorme', cfg: { n: 4, per: 7, buy: false } },
+  { lbl: '🐴 4 na mesa · burrinho (compra)',   cfg: { n: 4, per: 6, buy: true } },
+  { lbl: '⚔️ 1 contra 1 · 7 pedras',           cfg: { n: 2, per: 7, buy: false } },
+  { lbl: '🐴 1 contra 1 · burrinho',           cfg: { n: 2, per: 7, buy: true } }
+];
+const modeLabel = c => (MODE_LIST.find(m =>
+  m.cfg.n === (c.n || 4) && m.cfg.per === (c.per || 6) && !!m.cfg.buy === !!c.buy) || MODE_LIST[0]).lbl;
+function modeMenu(cb){
+  showModal(`<h2>Como cês jogam?</h2><p class="sub">escolhe a mesa</p>`,
+    MODE_LIST.map(m => ({ label: m.lbl, fn: () => { closeModal(); cb({ ...m.cfg, target: 6 }); } }))
+      .concat([{ label: 'voltar', ghost: true, fn: closeModal }]));
+}
+
 function startLocal(cfg){
   view.online = false; view.mySeat = 0; view.hostSeat = 0;
   view.cfg = cfg; view.phase = 'play';
+  const n = cfg.n || 4;
   const used = new Set([myAv]);
-  const pref = ['zefa', 'beto', 'tiao'];                    // esquerda · parceiro · direita
+  const pref = n === 2 ? ['tiao'] : ['zefa', 'beto', 'tiao'];   // 1x1: um rival · 4: esq/parc/dir
   const pool = AVATARS.map(a => a.id).filter(id => !pref.includes(id));
   const avs = pref.map(id => {
     if (!used.has(id)) { used.add(id); return id; }
     const alt = pool.find(x => !used.has(x)) || 'nino';
     used.add(alt); return alt;
   });
-  view.seats = [
-    { name: myName || 'Você', av: myAv },
-    { name: botName(avs[0]), av: avs[0], bot: true },
-    { name: botName(avs[1]), av: avs[1], bot: true },
-    { name: botName(avs[2]), av: avs[2], bot: true }
-  ];
+  view.seats = [{ name: myName || 'Você', av: myAv }];
+  avs.forEach(av => view.seats.push({ name: botName(av), av, bot: true }));
   LOCAL.on = true;
   LOCAL.m = CORE.newMatch(cfg.target || 6); view.m = LOCAL.m;
-  onHumanPlay = localHumanPlay; onBotTake = null;
+  onHumanPlay = localHumanPlay; onHumanBuy = localHumanBuy; onBotTake = null;
   showScreen('game'); wakeLock();
   localDeal();
 }
@@ -2121,7 +2265,11 @@ async function localTick(){
 
   if (st.turn === 0) {                                   // minha vez
     busy = false; renderAll();
-    if (!legal.length) {                                 // sem jogada: passa sozinho
+    if (!legal.length) {
+      if (st.buy && st.dorme.length) {                   // burrinho: compra na unha
+        clearTimeout(LOCAL.idle);
+        return;                                          // dorme pulsa, espera o toque
+      }
       busy = true; renderHand();
       await sleep(1000);
       if (!LOCAL.on || view.st !== st) return;
@@ -2136,7 +2284,7 @@ async function localTick(){
     LOCAL.idle = setTimeout(() => {
       if (LOCAL.on && view.st === st && st.turn === 0 && !st.finished) {
         SND.turn(); toast('Sua vez!');
-        const s = pick([1, 3]);
+        const s = (st.n || 4) === 2 ? 1 : pick([1, 3]);
         const tx = CHAT.maybe(s, seatAv(s), 'waitLong');
         if (tx) showBubble(s, esc(tx));
       }
@@ -2162,6 +2310,13 @@ async function localTick(){
   }, rnd(800, 1300));
   await sleep(longT ? rnd(3400, 5800) : rnd(900, 2100));
   if (!LOCAL.on || view.st !== st || st.turn !== p) return;
+  // burrinho: o robô compra na frente de todo mundo, uma por uma
+  while (st.buy && !CORE.legalMoves(st, p).length && st.dorme.length) {
+    CORE.applyBuy(st, p);
+    SND.deal(1); renderAll();
+    await sleep(rnd(320, 520));
+    if (!LOCAL.on || view.st !== st || st.turn !== p) return;
+  }
   hideBubble(p);
   const mv = CORE.aiChoose(st, p);
   if (!mv) {
@@ -2187,7 +2342,7 @@ async function localTick(){
 function botChatterPost(p, st, mv){
   if (st.finished) return;
   const [a, b] = mv.tileId.split('-').map(Number);
-  const e = CORE.ends(st), nxt = (p + 1) % 4;
+  const e = CORE.ends(st), nxt = (p + 1) % (st.n || 4);
   let tx = null;
   if (e && st.passedOn[nxt].has(e.L) && st.passedOn[nxt].has(e.R))
     tx = CHAT.maybe(p, seatAv(p), 'lock');
@@ -2217,13 +2372,15 @@ async function localFinish(){
     (f.team === myT ? SND.bat : SND.slap)();
     const bp = f.player;
     if (bp !== 0) { const tx = CHAT.maybe(bp, seatAv(bp), 'bateu'); if (tx) showBubble(bp, esc(tx)); }
-    const par = (bp + 2) % 4;
-    if (par !== 0) setTimeout(() => { const tx = CHAT.maybe(par, seatAv(par), 'bateuParc'); if (tx) showBubble(par, esc(tx)); }, 700);
-    const opp = [(bp + 1) % 4, (bp + 3) % 4].filter(x => x !== 0);
+    const nn = st.n || 4;
+    const par = nn === 4 ? (bp + 2) % 4 : -1;
+    if (par > 0) setTimeout(() => { const tx = CHAT.maybe(par, seatAv(par), 'bateuParc'); if (tx) showBubble(par, esc(tx)); }, 700);
+    const opp = (nn === 4 ? [(bp + 1) % 4, (bp + 3) % 4] : [(bp + 1) % 2]).filter(x => x !== 0);
     if (opp.length) setTimeout(() => { const s = pick(opp); const tx = CHAT.maybe(s, seatAv(s), 'bateuAdv'); if (tx) showBubble(s, esc(tx)); }, 1300);
   } else {
     SND.tranca();
-    const lp = (st.turn + 3) % 4;
+    const nn = st.n || 4;
+    const lp = (st.turn + nn - 1) % nn;
     if (lp !== 0) { const tx = CHAT.maybe(lp, seatAv(lp), 'trancou'); if (tx) showBubble(lp, esc(tx)); }
   }
   vibrate(f.team === myT ? [40, 60, 40] : 60);
@@ -2289,7 +2446,7 @@ async function createRoom(){
     }
     ON.id = uid();
     await NET.PUT('rooms/' + code, {
-      createdAt: now(), phase: 'wait', cfg: { per: 6, target: 6 },
+      createdAt: now(), phase: 'wait', cfg: { per: 6, n: 4, buy: false, target: 6 },
       players: { 0: { name: me.name, av: me.av, id: ON.id, lastSeen: now() } }
     });
     netErr('');
@@ -2343,7 +2500,7 @@ function enterRoom(code){
   ON.code = code; ON.lastSeq = -1; ON.seen = new Set(); ON.joinedAt = now();
   ON.finShown = -1; ON.endShown = false; ON.botFor = -1; ON.celebFor = -1; ON.tmoFor = -1;
   view.online = true;
-  onHumanPlay = onlineHumanPlay;
+  onHumanPlay = onlineHumanPlay; onHumanBuy = onlineHumanBuy;
   onBotTake = seat => {
     NET.PATCH(`rooms/${ON.code}/players/${seat}`, { bot: true })
       .then(() => toast('O robô assumiu o lugar de ' + seatName(seat)))
@@ -2367,7 +2524,7 @@ function onRoom(room){
     return;
   }
   view.mySeat = seat;
-  view.cfg = room.cfg || { per: 6, target: 6 };
+  view.cfg = Object.assign({ per: 6, n: 4, buy: false, target: 6 }, room.cfg || {});
   view.phase = room.phase;
   view.hostSeat = hostSeatOf(room);
   view.seats = [0, 1, 2, 3].map(s => {
@@ -2394,6 +2551,10 @@ function processG(g, fromMe){
   busy = view.st.turn !== view.mySeat || !!view.st.finished;
 
   if (g.ev && g.ev.k === 'deal') { closeModal(); ON.endShown = false; if (!first) shuffleFX(); }
+  if (!first && g.ev) {
+    if (g.ev.k === 'buy') SND.deal(1);
+    if (g.ev.drew) SND.deal(Math.min(g.ev.drew, 4));
+  }
   if (!mine && !first && g.ev) {
     if (g.ev.k === 'play') { SND.place(); vibrate(8); }
     else if (g.ev.k === 'pass') SND.pass();
@@ -2410,7 +2571,11 @@ function processG(g, fromMe){
   }
   if (view.st.turn === view.mySeat) {
     busy = false; renderHand();
-    if (!CORE.legalMoves(view.st, view.mySeat).length) autoPassOnline(g.seq);
+    const lm = CORE.legalMoves(view.st, view.mySeat);
+    if (!lm.length) {
+      if (view.st.buy && view.st.dorme.length) armIdle();   // compra na mão; relógio segue valendo
+      else autoPassOnline(g.seq);
+    }
     else armIdle();
   } else {
     ON.thinkSeat = view.st.turn;
@@ -2462,6 +2627,19 @@ function onlineHumanPlay(tileId, end){
     extra['chat/' + key] = { s: view.mySeat, t: pick(FR.generic.bateu), ts: now() };
   }
   writeG(st2, m2, { k: 'play', s: view.mySeat }, extra);
+}
+
+async function onlineHumanBuy(){
+  const cur = ON.sub && ON.sub.get();
+  if (!cur || !cur.g) return;
+  const st = view.st;
+  if (busy || !st || st.finished || st.turn !== view.mySeat) return;
+  if (!st.buy || CORE.legalMoves(st, view.mySeat).length || !st.dorme.length) return;
+  busy = true;
+  const st2 = CORE.unpack(CORE.pack(st));
+  CORE.applyBuy(st2, view.mySeat);
+  const m2 = { ...view.m, score: [...view.m.score] };
+  writeG(st2, m2, { k: 'buy', s: view.mySeat });
 }
 
 async function autoPassOnline(seq){
@@ -2529,11 +2707,14 @@ async function hostTimeout(seq, p){
   const st2 = CORE.unpack(cur.g.st);
   if (st2.turn !== p || st2.finished) return;
   const m2 = { ...cur.g.m, score: [...cur.g.m.score] };
+  let drew = 0;
+  while (st2.buy && !CORE.legalMoves(st2, p).length && st2.dorme.length) { CORE.applyBuy(st2, p); drew++; }
   const mv = CORE.aiChoose(st2, p);
   const extra = { ['chat/' + now() + '_' + p]: { s: p, t: '⏱ o tempo acabou — a mesa jogou por mim', ts: now() } };
   let ev;
   if (mv) { CORE.applyPlay(st2, p, mv.tileId, mv.end); ev = { k: 'play', s: p }; }
   else    { CORE.applyPass(st2, p);                    ev = { k: 'pass', s: p }; }
+  if (drew) ev.drew = drew;
   Object.assign(extra, finPatch(st2, m2));
   writeG(st2, m2, ev, extra);
 }
@@ -2544,6 +2725,8 @@ async function botMove(seq, p){
   const st2 = CORE.unpack(cur.g.st);
   if (st2.turn !== p || st2.finished) return;
   const m2 = { ...cur.g.m, score: [...cur.g.m.score] };
+  let drew = 0;
+  while (st2.buy && !CORE.legalMoves(st2, p).length && st2.dorme.length) { CORE.applyBuy(st2, p); drew++; }
   const mv = CORE.aiChoose(st2, p);
   const extra = {};
   const say = (ev) => {
@@ -2554,20 +2737,21 @@ async function botMove(seq, p){
     CORE.applyPass(st2, p);
     say('pass');
     Object.assign(extra, finPatch(st2, m2));
-    writeG(st2, m2, { k: 'pass', s: p }, extra);
+    const evp = { k: 'pass', s: p }; if (drew) evp.drew = drew;
+    writeG(st2, m2, evp, extra);
     return;
   }
   if (st2.forced && !st2.line.length) say('forced');
   CORE.applyPlay(st2, p, mv.tileId, mv.end);
   if (!st2.finished) {
     const [a, b] = mv.tileId.split('-').map(Number);
-    const e = CORE.ends(st2), nxt = (p + 1) % 4;
+    const e = CORE.ends(st2), nxt = (p + 1) % (st2.n || 4);
     if (e && st2.passedOn[nxt].has(e.L) && st2.passedOn[nxt].has(e.R)) say('lock');
     else if (a === b) say('dbl');
     else if (st2.hands[p].length === 1) say('oneLeft');
   }
   Object.assign(extra, finPatch(st2, m2));
-  writeG(st2, m2, { k: 'play', s: p }, extra);
+  writeG(st2, m2, (drew ? { k: 'play', s: p, drew } : { k: 'play', s: p }), extra);
 }
 
 function botsCelebrate(st){
@@ -2580,12 +2764,14 @@ function botsCelebrate(st){
   };
   if (f.type === 'batida') {
     if (isBot(f.player)) add(f.player, 'bateu');
-    const par = (f.player + 2) % 4;
-    if (isBot(par)) add(par, 'bateuParc');
-    const opp = [(f.player + 1) % 4, (f.player + 3) % 4].filter(isBot);
+    const nn = st.n || 4;
+    const par = nn === 4 ? (f.player + 2) % 4 : -1;
+    if (par >= 0 && isBot(par)) add(par, 'bateuParc');
+    const opp = (nn === 4 ? [(f.player + 1) % 4, (f.player + 3) % 4] : [(f.player + 1) % 2]).filter(isBot);
     if (opp.length) add(pick(opp), 'bateuAdv');
   } else {
-    const lp = (st.turn + 3) % 4;
+    const nn = st.n || 4;
+    const lp = (st.turn + nn - 1) % nn;
     if (isBot(lp)) add(lp, 'trancou');
   }
   if (Object.keys(entries).length)
@@ -2677,12 +2863,14 @@ function chatDiff(chat){
 function renderWait(){
   $('#codeShow').textContent = ON.code || '····';
   const host = view.mySeat === view.hostSeat;
-  document.querySelectorAll('#modePills .pill').forEach(b => {
-    b.classList.toggle('on', String(view.cfg.per || 6) === b.dataset.per);
-    b.disabled = !host;
-  });
+  const n = view.cfg.n || 4;
+  const bm = $('#btnMode');
+  if (bm) { bm.textContent = modeLabel(view.cfg); bm.disabled = !host; }
+  const tt = document.querySelector('.teamtags');
+  if (tt) tt.style.display = n === 2 ? 'none' : '';
   const grid = $('#seatGrid'); grid.innerHTML = '';
-  for (let s = 0; s < 4; s++) {
+  grid.classList.toggle('n2', n === 2);
+  for (let s = 0; s < n; s++) {
     const p = view.seats[s];
     const d = document.createElement('div');
     d.className = 'seat t' + TEAM_OF(s) + (p ? '' : ' empty');
@@ -2698,10 +2886,11 @@ function renderWait(){
   }
   const nHum = view.seats.filter(p => p && !p.bot).length;
   $('#waitMsg').innerHTML = host
-    ? 'Manda o código pra galera. Dupla é quem senta de frente — pode começar que vaga vira robô.'
-    : `Esperando <b>${esc(seatName(view.hostSeat))}</b> dar as pedras… (${nHum}/4 na mesa)`;
+    ? (n === 2 ? 'É mano a mano — manda o código pro rival. Pode começar que vaga vira robô.'
+               : 'Manda o código pra galera. Dupla é quem senta de frente — pode começar que vaga vira robô.')
+    : `Esperando <b>${esc(seatName(view.hostSeat))}</b> dar as pedras… (${nHum}/${n} na mesa)`;
   $('#btnStart').classList.toggle('hidden', !host);
-  $('#btnSwap').classList.toggle('hidden', !host);
+  $('#btnSwap').classList.toggle('hidden', !host || n === 2);
 }
 
 async function moveSeat(s){
@@ -2710,7 +2899,8 @@ async function moveSeat(s){
   const old = mySeatNow();
   if (old < 0 || old === s) return;
   if (old === view.hostSeat) {
-    const outros = [0, 1, 2, 3].filter(x => x !== old && room.players[x] && !room.players[x].bot);
+    const nn = (room.cfg && room.cfg.n) || 4;
+    const outros = [...Array(nn).keys()].filter(x => x !== old && room.players[x] && !room.players[x].bot);
     if (outros.some(x => x < s)) return toast('O dono fica no menor assento — usa "Girar lugares"');
   }
   SND.tap();
@@ -2739,6 +2929,25 @@ async function startOnline(){
   patch.phase = 'play'; patch.chat = null;
   patch.g = { seq: 1, st: CORE.pack(st), m, ev: { k: 'deal', s: view.mySeat }, t: now() };
   await NET.PATCH('rooms/' + ON.code, patch).catch(() => toast('Falhou — tenta de novo'));
+}
+
+function hostModePick(){
+  modeMenu(async cfg => {
+    const room = ON.sub && ON.sub.get();
+    if (!room || room.phase !== 'wait') return;
+    const humans = Object.entries(room.players || {}).filter(([, p]) => p && !p.bot);
+    if (cfg.n === 2 && humans.length > 2)
+      return toast('1x1 é só com 2 na mesa — alguém sai primeiro 😄');
+    if (cfg.n === 2) {
+      const seats = humans.map(([s]) => +s).sort((a, b) => a - b);
+      const patch = {};
+      seats.forEach((s, i) => { if (s !== i) { patch[i] = room.players[s]; patch[s] = null; } });
+      [2, 3].forEach(s => { if (room.players[s] && !(s in patch)) patch[s] = null; });
+      if (Object.keys(patch).length)
+        await NET.PATCH('rooms/' + ON.code + '/players', patch).catch(() => {});
+    }
+    NET.PATCH('rooms/' + ON.code + '/cfg', { per: cfg.per, n: cfg.n, buy: !!cfg.buy }).catch(() => {});
+  });
 }
 
 async function swapSeats(){
@@ -2885,11 +3094,7 @@ function boot(){
   $('#btnLocal').onclick = () => {
     SND.unlock(); SND.tap();
     myName = sanitizeName($('#nameIn').value) || 'Você';
-    showModal(`<h2>Como cês jogam?</h2><p class="sub">o clássico ou o sem dorme</p>`, [
-      { label: '6 pedras + dorme', fn: () => { closeModal(); startLocal({ per: 6, target: 6 }); } },
-      { label: '7 pedras, sem dorme', fn: () => { closeModal(); startLocal({ per: 7, target: 6 }); } },
-      { label: 'voltar', ghost: true, fn: closeModal }
-    ]);
+    modeMenu(cfg => startLocal(cfg));
   };
   $('#btnCreate').onclick = () => { SND.unlock(); SND.tap(); createRoom(); };
   $('#btnJoinShow').onclick = () => {
@@ -2922,13 +3127,11 @@ function boot(){
     catch (e) { $('#btnCopy').textContent = 'Código: ' + ON.code; }
     setTimeout(() => $('#btnCopy').textContent = '📋 Copiar convite', 1800);
   };
-  document.querySelectorAll('#modePills .pill').forEach(b => {
-    b.onclick = () => {
-      if (view.mySeat !== view.hostSeat || !ON.code) return;
-      SND.tap();
-      NET.PATCH('rooms/' + ON.code + '/cfg', { per: +b.dataset.per }).catch(() => {});
-    };
-  });
+  $('#btnMode').onclick = () => {
+    if (view.mySeat !== view.hostSeat || !ON.code) return;
+    SND.tap();
+    hostModePick();
+  };
   $('#btnStart').onclick = () => { SND.tap(); startOnline(); };
   $('#btnSwap').onclick = () => { SND.tap(); swapSeats(); };
 
@@ -2957,7 +3160,7 @@ function boot(){
     netErr('achou a mesa ' + h + ' — só falta teu nome');
   }
 
-  if (location.search.includes('debug')) window.__D = { view, CORE, NET, ON, LOCAL, startLocal, processG, applyTheme, applySkin, THEMES, SKINS, customize, SND, moveSeat };
+  if (location.search.includes('debug')) window.__D = { view, CORE, NET, ON, LOCAL, startLocal, processG, applyTheme, applySkin, THEMES, SKINS, customize, SND, moveSeat, MODE_LIST, modeMenu };
 }
 boot();
 </script>
