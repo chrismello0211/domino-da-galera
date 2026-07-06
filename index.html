@@ -2060,19 +2060,21 @@ function revealHTML(){
     sub = f.team == null ? 'Empate no peso — ninguém pontua'
         : `Menos pedra na mão: <span class="pt">+1</span> pra ${f.team === myT ? 'NÓS' : 'ELES'}`;
   }
-  const rows = [0, 1, 2, 3].map(p => {
-    const h = st.hands[p];
+  const n = st.n || 4;
+  const rows = Array.from({ length: n }, (_, p) => {
+    const h = st.hands[p] || [];
     return `<div class="rrow">
       <span class="rn">${p === view.mySeat ? 'Você' : esc(seatName(p))}</span>
       <span class="rt">${h.length ? h.map(t => miniTile(t.a, t.b)).join('') : '<i style="opacity:.6">bateu</i>'}</span>
       <span class="rs">${CORE.handSum(h)}</span>
     </div>`;
   }).join('');
-  const dorme = st.per === 6
+  const dorme = st.dorme.length
     ? `<div class="rrow"><span class="rn">Dorme</span><span class="rt">${st.dorme.map(t => miniTile(t.a, t.b)).join('')}</span><span class="rs">${CORE.handSum(st.dorme)}</span></div>`
     : '';
   const sums = st.hands.map(CORE.handSum);
-  const tMy = sums[myT] + sums[myT + 2], tOp = sums[1 - myT] + sums[(1 - myT) + 2];
+  const tMy = n === 2 ? sums[myT] : sums[myT] + sums[myT + 2];
+  const tOp = n === 2 ? sums[1 - myT] : sums[1 - myT] + sums[(1 - myT) + 2];
   return `<h2>${head}</h2><p class="sub">${sub}</p>
     <div class="reveal">${rows}${dorme}
       <div class="teamsum"><span class="${tMy <= tOp ? 'win' : ''}">Nós: ${tMy} na mão</span>
@@ -2656,7 +2658,10 @@ async function localFinish(){
     }
     btns = [{ label: 'Próxima mão', fn: () => { closeModal(); localDeal(); } }];
   }
-  showModal(revealHTML() + extra, btns);
+  let corpo;
+  try { corpo = revealHTML(); }
+  catch (e) { corpo = `<h2>Fim da mão</h2><p class="sub">placar atualizado</p>`; }
+  showModal(corpo + extra, btns);
 }
 
 function localMatchEnd(){
@@ -2666,7 +2671,8 @@ function localMatchEnd(){
   bumpStats(mine);
   if (mine) { SND.win(); confetti(); } else SND.tranca();
   showModal(
-    `<h2>${mine ? '🏆 Vitória da dupla!' : 'Eles levaram essa…'}</h2>
+    `<h2>${mine ? ((LOCAL.m && view.st && view.st.n === 2) ? '🏆 Vitória!' : '🏆 Vitória da dupla!')
+             : ((view.st && view.st.n === 2) ? seatName(1) + ' levou essa…' : 'Eles levaram essa…')}</h2>
      <p class="sub">NÓS <span class="pt">${m.score[0]}</span> × <span class="pt">${m.score[1]}</span> ELES</p>`,
     [
       { label: 'Revanche', fn: () => { closeModal(); LOCAL.m = CORE.newMatch(view.cfg.target || 6); view.m = LOCAL.m; localDeal(); } },
@@ -3169,7 +3175,10 @@ async function finishOnline(g){
       ? [{ label: 'Dar as pedras agora', fn: () => { closeModal(); daPedras(); } }]
       : [{ label: 'Beleza', ghost: true, fn: closeModal }];
   }
-  const m = showModal(revealHTML()
+  let corpo;
+  try { corpo = revealHTML(); }
+  catch (e) { corpo = `<h2>Fim da mão</h2><p class="sub">placar atualizado</p>`; }
+  const m = showModal(corpo
     + (escolho ? `<p class="sub">Dupla venceu — <b>sai tu ou saio eu?</b> 😏</p>` : '')
     + `<p class="sub" id="nextIn"></p>`, btns);
   let s = 12;
@@ -3198,7 +3207,8 @@ function matchEndOnline(){
        { label: 'Encerrar mesa', ghost: true, fn: () => { NET.DEL('rooms/' + ON.code).catch(() => {}); } }]
     : [{ label: 'Sair da mesa', ghost: true, fn: () => leaveOnline(true) }];
   showModal(
-    `<h2>${mine ? '🏆 Vitória da dupla!' : 'Eles levaram essa…'}</h2>
+    `<h2>${mine ? ((LOCAL.m && view.st && view.st.n === 2) ? '🏆 Vitória!' : '🏆 Vitória da dupla!')
+             : ((view.st && view.st.n === 2) ? seatName(1) + ' levou essa…' : 'Eles levaram essa…')}</h2>
      <p class="sub">NÓS <span class="pt">${m.score[myT]}</span> × <span class="pt">${m.score[1 - myT]}</span> ELES</p>
      ${host ? '' : '<p class="sub" style="font-size:13px;color:var(--muted)">o dono da mesa decide a revanche…</p>'}`,
     btns);
