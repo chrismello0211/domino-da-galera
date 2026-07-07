@@ -441,6 +441,35 @@ input{font-family:inherit;}
 .mt .half{position:relative;flex:1;}
 .mt .mid{position:absolute;top:50%;left:13%;right:13%;height:2.5px;background:var(--stoneline);transform:translateY(-50%);}
 
+/* sai tu ou saio eu (pós-pedras) */
+#saiBar{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);z-index:22;
+  width:min(92vw,380px);background:linear-gradient(180deg,#3a2d1c,#2a2014);
+  border:2px solid rgba(242,169,59,.55);border-radius:16px;padding:10px 12px;
+  box-shadow:0 12px 30px rgba(0,0,0,.55);text-align:center;
+  animation:saiIn .3s cubic-bezier(.3,1.4,.5,1);}
+#handbar{position:relative;}
+@keyframes saiIn{from{transform:translate(-50%,14px) scale(.9);opacity:0;}}
+#saiBar .sq{display:block;color:var(--cream);font-size:13px;margin-bottom:8px;}
+#saiBar .sbtns{display:flex;gap:8px;justify-content:center;}
+#saiBar button{flex:1;max-width:160px;border:0;border-radius:12px;padding:9px 10px;
+  font-family:inherit;font-weight:900;font-size:13.5px;cursor:pointer;
+  background:linear-gradient(180deg,#ffd98a,#f2a93b);color:#3a2405;
+  box-shadow:0 3px 0 #b97a1c,0 6px 14px rgba(0,0,0,.4);}
+#saiBar button:active{transform:translateY(2px);box-shadow:0 1px 0 #b97a1c;}
+
+/* jogo do burro */
+#topbar.burro #scoreUs,#topbar.burro #scoreThem,
+#topbar.burro #pairUs,#topbar.burro #pairThem,
+#topbar.burro .tname{display:none;}
+#topbar.burro #roundInfo b{font-size:16px;}
+.penb{display:inline-block;margin-top:2px;font-size:10px;font-weight:900;color:#3a2405;
+  background:linear-gradient(180deg,#ffd98a,#f2a93b);padding:1px 7px;border-radius:8px;
+  box-shadow:0 1px 3px rgba(0,0,0,.4);}
+#meCol .penb{margin-top:3px;}
+.outb{font-size:10px;font-weight:800;color:var(--cream);opacity:.85;background:rgba(0,0,0,.3);
+  padding:1px 7px;border-radius:8px;}
+.opp.outp .avatar{opacity:.55;filter:saturate(.6);}
+
 /* luz do dia + respiração da mesa */
 #dayTint{position:absolute;inset:0;pointer-events:none;z-index:0;mix-blend-mode:overlay;transition:background 2s ease;}
 #glowPulse{position:absolute;inset:0;pointer-events:none;z-index:0;
@@ -774,6 +803,13 @@ input{font-family:inherit;}
     <div class="opp" id="oppRight"></div>
   </main>
   <footer id="handbar" class="woodgrain">
+    <div id="saiBar" class="hidden">
+      <span class="sq">Sua dupla venceu — <b>sai tu ou saio eu?</b> 😏</span>
+      <div class="sbtns">
+        <button id="saiEu">🫡 Eu saio</button>
+        <button id="saiTu">👉 Sai <span id="saiNome"></span></button>
+      </div>
+    </div>
     <div id="turnChip" class="hidden">SUA VEZ</div>
     <div id="meCol">
       <div id="meAv"><div class="bubble hidden" id="bub-me"></div></div>
@@ -850,7 +886,8 @@ const CORE = (() => {
   const handSum = h => h.reduce((s, t) => s + t.a + t.b, 0);
 
   function newMatch(target){
-    return { score: [0, 0], target: target || 6, roundNum: 0, nextStarter: null };
+    return { score: [0, 0], target: target || 6, roundNum: 0, nextStarter: null,
+             pen: [0, 0, 0, 0] };                 // burrinho: pedras extras de castigo
   }
 
   // Nova mão. cfg = { per: pedras por jogador, n: 2 ou 4 na mesa,
@@ -862,8 +899,20 @@ const CORE = (() => {
     const per = (cfg && cfg.per) === 7 ? 7 : 6;
     const buy = !!(cfg && cfg.buy);
     const deck = shuffle(makeSet());
-    const hands = Array.from({ length: n }, (_, p) => deck.slice(p * per, (p + 1) * per));
-    const dorme = deck.slice(per * n);
+    let hands, dealt;
+    if (buy) {                                    // jogo do burro: 4 + castigo por jogador
+      const pen = (match.pen || []);
+      let off = 0;
+      hands = Array.from({ length: n }, (_, p) => {
+        const k = 4 + (pen[p] || 0);
+        const h = deck.slice(off, off + k); off += k; return h;
+      });
+      dealt = off;
+    } else {
+      hands = Array.from({ length: n }, (_, p) => deck.slice(p * per, (p + 1) * per));
+      dealt = per * n;
+    }
+    const dorme = deck.slice(dealt);
     match.roundNum++;
     let starter = match.nextStarter, forced = null;
     if (match.roundNum === 1 || starter == null) {
@@ -915,7 +964,17 @@ const CORE = (() => {
     return mv;
   }
 
-  function endTurn(st){ if (!st.finished) st.turn = (st.turn + 1) % (st.n || 4); }
+  function endTurn(st){
+    if (st.finished) return;
+    const n = st.n || 4;
+    let t = st.turn;
+    for (let k = 0; k < n; k++) {
+      t = (t + 1) % n;
+      if (st.hands[t].length) break;              // no burro, quem bateu tá fora da roda
+    }
+    st.turn = t;
+  }
+  const aliveCount = st => st.hands.filter(h => h.length).length;
 
   function applyPlay(st, p, tileId, end){
     const h = st.hands[p];
@@ -942,15 +1001,22 @@ const CORE = (() => {
     st.lastPlay = { p, tileId: t.id, end };
 
     if (!h.length) {
-      // classifica a batida
-      let kind = 'simples', pts = 1;
-      if (before) {
-        const fL = fits(t, before.L), fR = fits(t, before.R);
-        if (isD(t) && fL && fR)      { kind = 'cruzada';  pts = 4; }
-        else if (isD(t))             { kind = 'carroça';  pts = 2; }
-        else if (fL && fR)           { kind = 'lá-e-lô';  pts = 3; }
+      if (st.buy) {
+        (st.out = st.out || []).push(p);          // saiu do burro — jogo continua
+        if (aliveCount(st) <= 1) {
+          const burro = st.hands.findIndex(hh => hh.length);
+          st.finished = { type: 'burro', how: 'bateu', burro, out: st.out.slice() };
+        }
+      } else {
+        let kind = 'simples', pts = 1;
+        if (before) {
+          const fL = fits(t, before.L), fR = fits(t, before.R);
+          if (isD(t) && fL && fR)      { kind = 'cruzada';  pts = 4; }
+          else if (isD(t))             { kind = 'carroça';  pts = 2; }
+          else if (fL && fR)           { kind = 'lá-e-lô';  pts = 3; }
+        }
+        st.finished = { type: 'batida', player: p, team: p % 2, kind, points: pts };
       }
-      st.finished = { type: 'batida', player: p, team: p % 2, kind, points: pts };
     }
     endTurn(st);
     return st.finished;
@@ -960,6 +1026,18 @@ const CORE = (() => {
     const e = ends(st);
     if (e) { st.passedOn[p].add(e.L); st.passedOn[p].add(e.R); }
     st.passes++;
+    if (st.buy && st.passes >= aliveCount(st)) {
+      const sums = st.hands.map(handSum);
+      let burro = -1;
+      for (let q = 0; q < (st.n || 4); q++) {
+        if (!st.hands[q].length) continue;
+        if (burro < 0 ||
+            sums[q] > sums[burro] ||
+            (sums[q] === sums[burro] && st.hands[q].length > st.hands[burro].length)) burro = q;
+      }
+      st.finished = { type: 'burro', how: 'tranca', burro, out: (st.out || []).slice() };
+      return st.finished;
+    }
     if (st.passes >= (st.n || 4)) {
       const sums = st.hands.map(handSum);
       const tA = st.n === 2 ? sums[0] : sums[0] + sums[2];
@@ -983,8 +1061,10 @@ const CORE = (() => {
     return t;
   }
 
-  // quem começa a próxima mão: quem bateu; na tranca, quem tem menos pontos na mão
+  // quem começa a próxima mão: quem bateu; na tranca, quem tem menos pontos na mão;
+  // no burro, o próprio burro abre (já com a pedra a mais)
   function nextStarterFrom(st){
+    if (st.finished && st.finished.type === 'burro') return st.finished.burro;
     if (st.finished.type === 'batida') return st.finished.player;
     const sums = st.finished.sums;
     const n = st.n || 4;
@@ -1004,7 +1084,7 @@ const CORE = (() => {
     if (mv.length === 1) return { tileId: mv[0].tile.id, end: mv[0].end };
     const e = ends(st);
     const n = st.n || 4;
-    const next = (p + 1) % n, partner = n === 4 ? (p + 2) % 4 : -1;
+    const next = (p + 1) % n, partner = (n === 4 && !st.buy) ? (p + 2) % 4 : -1;
     let best = null, bs = -1e9;
     for (const m of mv) {
       const t = m.tile;
@@ -1110,6 +1190,7 @@ const CORE = (() => {
       passedOn: st.passedOn.map(s => [...s]),
       lastPlay: st.lastPlay || null, finished: st.finished || null,
       lastBuy: st.lastBuy || null,
+      out: (st.out || []),
       plays: st.plays
     };
   }
@@ -1134,6 +1215,7 @@ const CORE = (() => {
       passedOn: idxN(js.passedOn).map(a => new Set(a.filter(notNil))),
       lastPlay: js.lastPlay || null, finished: js.finished || null,
       lastBuy: js.lastBuy || null,
+      out: toArr(js.out).filter(notNil),
       plays: js.plays || 0
     };
   }
@@ -1597,19 +1679,35 @@ function showModal(html, btns, opts){
 function closeModal(){ $('#modalWrap').classList.add('hidden'); }
 
 function rulesHTML(cfg){
+  const n = (cfg && cfg.n) || 4;
+  const buy = !!(cfg && cfg.buy);
+  if (buy) {
+    return `
+  <h2>Como funciona</h2>
+  <div class="rules">
+    <p>🐴 <b>Jogo do burro</b> — ${n === 2 ? '<b>1 contra 1</b>' : '<b>4 na mesa, todos por si</b> (sem duplas!)'}.</p>
+    <p>Cada um começa com <b>4 pedras</b>. Sem encaixe? <b>Toca no dorme e compra</b> até achar uma que sirva — só passa se o dorme secar.</p>
+    <p><b>Quem bate sai da roda</b> e o jogo continua entre os outros. O <b>último que sobrar</b> leva <b>+1 pedra</b> na rodada seguinte (e abre ela).</p>
+    <p>O castigo <b>acumula</b>: 5, 6, 7… Quando a mão de alguém <b>chegaria a 8</b>, essa pessoa é coroada <b>🐴 O BURRO</b> e a partida acaba.</p>
+    <p>Na tranca, leva o castigo quem tiver <b>mais peso na mão</b> entre os que sobraram.</p>
+  </div>`;
+  }
   const per = cfg && cfg.per === 7 ? 7 : 6;
   const dorme = per === 6
-    ? `Cada um recebe <b>6 pedras</b>; as <b>4 que sobram dormem</b> — ninguém compra, ninguém vê até o fim da mão.`
-    : `Cada um recebe <b>7 pedras</b> — <b>todas na mesa, sem dorme</b>.`;
+    ? `Cada um recebe <b>6 pedras</b>; as <b>${n === 2 ? 16 : 4} que sobram dormem</b> — ninguém compra, ninguém vê até o fim da mão.`
+    : (n === 2
+      ? `Cada um recebe <b>7 pedras</b>; as <b>14 que sobram dormem</b> — ninguém compra, ninguém vê até o fim da mão.`
+      : `Cada um recebe <b>7 pedras</b> — <b>todas na mesa, sem dorme</b>.`);
   return `
   <h2>Como funciona</h2>
   <div class="rules">
-    <p><b>28 pedras</b> (duplo-seis) · <b>4 jogadores em duplas</b> — quem senta de frente joga junto.</p>
+    <p><b>28 pedras</b> (duplo-seis) · ${n === 2 ? '<b>1 contra 1</b>, cada um por si' : '<b>4 jogadores em duplas</b> — quem senta de frente joga junto'}.</p>
     <p>${dorme}</p>
     <p><b>1ª mão:</b> quem tiver a maior carroça começa jogando ela. Nas seguintes, quem venceu a anterior abre com qualquer pedra.</p>
     <p>Na sua vez, encaixe uma pedra numa das pontas. <b>Sem jogada? Passa</b> — dois toques na mesa (aqui ninguém compra).</p>
     <p><b>Bateu:</b> <b>simples +1</b> · <b>carroça +2</b> · <b>lá-e-lô +3</b> (serve nas duas pontas) · <b>cruzada +4</b> (carroça que serve nas duas).</p>
-    <p><b>Tranca:</b> a dupla com <b>menos pontos na mão</b> leva <b>+1</b>. Empate: ninguém pontua.</p>
+    <p><b>Tranca:</b> ${n === 2 ? 'quem tiver <b>menos pontos na mão</b> leva <b>+1</b>' : 'a dupla com <b>menos pontos na mão</b> leva <b>+1</b>'}. Empate: ninguém pontua.</p>
+    ${n === 4 ? '<p>Quando a dupla vence a mão, <b>depois das pedras novas</b> ela escolhe quem abre — o famoso <b>"sai tu ou saio eu?"</b> 😏</p>' : ''}
     <p>Vence a partida quem fizer <b>${(cfg && cfg.target) || 6} pontos</b> primeiro.</p>
   </div>`;
 }
@@ -1617,6 +1715,17 @@ function rulesHTML(cfg){
 /* ---------- topo ---------- */
 function renderTop(){
   if (!view.m) return;
+  const tb = $('#topbar');
+  if (tb) tb.classList.toggle('burro', !!(view.st && view.st.buy));
+  if (view.st && view.st.buy) {
+    const ri = $('#roundInfo');
+    if (ri) ri.innerHTML = `<b>${view.m.roundNum}ª rodada</b><span>🐴 jogo do burro</span>`;
+    return;
+  }
+  if (!$('#roundLabel')) {           // voltando do burro pro clássico: recompõe o centro
+    const ri = $('#roundInfo');
+    if (ri) ri.innerHTML = '<b id="roundLabel"></b><span class="tgt">até <b id="targetLabel">6</b></span>';
+  }
   const my = TEAM_OF(view.mySeat);
   const su = $('#scoreUs'), sth = $('#scoreThem');
   const a = view.m.score[my], b = view.m.score[1 - my];
@@ -1669,6 +1778,12 @@ function renderMe(){
     me.insertAdjacentHTML('afterbegin', avSVG(av));
   }
   const nm = $('#meName'); if (nm) nm.textContent = myName || 'Você';
+  const pen = view.st && view.st.buy && view.m && view.m.pen ? (view.m.pen[view.mySeat] || 0) : 0;
+  let pb = document.querySelector('#meCol .penb');
+  if (pen > 0) {
+    if (!pb) { pb = document.createElement('span'); pb.className = 'penb'; nm.after(pb); }
+    pb.textContent = '🐴 +' + pen;
+  } else if (pb) pb.remove();
   me.classList.toggle('turn', !!(view.st && view.st.turn === view.mySeat && !view.st.finished));
 }
 
@@ -1686,7 +1801,19 @@ function renderOpps(){
     el.querySelector('.oname').textContent = seatName(seat) + (p.bot ? ' 🤖' : '');
     const nn = view.st.hands[seat].length;
     const backs = el.querySelector('.obacks');
-    if (backs.dataset.n != nn) { backs.dataset.n = nn; backs.innerHTML = '<span class="mback"></span>'.repeat(nn); }
+    const fora = view.st.buy && !nn && !view.st.finished;
+    const bkey = fora ? 'out' : String(nn);
+    if (backs.dataset.n !== bkey) {
+      backs.dataset.n = bkey;
+      backs.innerHTML = fora ? '<span class="outb">bati ✔</span>' : '<span class="mback"></span>'.repeat(nn);
+    }
+    el.classList.toggle('outp', fora);
+    const pen = view.st.buy && view.m && view.m.pen ? (view.m.pen[seat] || 0) : 0;
+    let pb = el.querySelector('.penb');
+    if (pen > 0) {
+      if (!pb) { pb = document.createElement('span'); pb.className = 'penb'; el.querySelector('.oname').after(pb); }
+      pb.textContent = '🐴 +' + pen;
+    } else if (pb) pb.remove();
     el.querySelector('.zz').classList.toggle('hidden', !p.stale || p.bot);
     el.querySelector('.botTake').classList.toggle('hidden',
       !(view.online && view.mySeat === view.hostSeat && !p.bot && p.stale && !view.st.finished));
@@ -1851,13 +1978,22 @@ function renderHand(dealAnim){
   $('#handbar').classList.toggle('myturn', myTurn);
   const chip = $('#turnChip');
   if (st.finished) chip.classList.add('hidden');
+  else if (window.__PICKME) { chip.classList.add('hidden'); }
   else if (myTurn) { chip.classList.remove('hidden'); chip.className = ''; chip.id = 'turnChip'; chip.textContent = 'SUA VEZ'; }
+  else if (window.__PICKWAIT) {
+    chip.classList.remove('hidden'); chip.className = 'wait'; chip.id = 'turnChip';
+    chip.textContent = '🤝 dupla vencedora escolhendo quem sai…';
+  }
+  else if (st.buy && !st.hands[view.mySeat].length) {
+    chip.classList.remove('hidden'); chip.className = 'wait'; chip.id = 'turnChip';
+    chip.textContent = '✔ você bateu — assistindo';
+  }
   else {
     chip.classList.remove('hidden'); chip.className = 'wait'; chip.id = 'turnChip';
     chip.textContent = st.turn === view.mySeat ? 'sua vez…' : 'vez de ' + seatName(st.turn) + '…';
   }
 
-  legal = myTurn ? CORE.legalMoves(st, view.mySeat) : [];
+  legal = (myTurn && !window.__PICKME) ? CORE.legalMoves(st, view.mySeat) : [];
   const playIds = new Set(legal.map(m => m.tile.id));
 
   const canBuy = myTurn && st.buy && !legal.length && st.dorme.length > 0;
@@ -2048,7 +2184,14 @@ function revealHTML(){
   const st = view.st, f = st.finished;
   const myT = TEAM_OF(view.mySeat);
   let head, sub;
-  if (f.type === 'batida') {
+  if (f.type === 'burro') {
+    const souEu = f.burro === view.mySeat;
+    head = souEu ? '🐴 Você ficou por último!' : `🐴 ${esc(seatName(f.burro))} ficou por último!`;
+    const prox = 4 + ((view.m && view.m.pen && view.m.pen[f.burro]) || 0) + 1;
+    sub = f.how === 'tranca'
+      ? `trancou — mais peso na mão leva o castigo · próxima com <span class="pt">${prox}</span> pedras`
+      : `leva <span class="pt">+1</span> pedra — próxima rodada com <span class="pt">${prox}</span>`;
+  } else if (f.type === 'batida') {
     const kindTx = { simples: 'batida simples', carroça: 'batida de carroça',
                      'lá-e-lô': 'lá-e-lô!', cruzada: 'CRUZADA!' }[f.kind];
     const mine = f.team === myT;
@@ -2061,10 +2204,16 @@ function revealHTML(){
         : `Menos pedra na mão: <span class="pt">+1</span> pra ${f.team === myT ? 'NÓS' : 'ELES'}`;
   }
   const n = st.n || 4;
+  const medal = p => {
+    if (!st.buy) return '';
+    if (f.type === 'burro' && p === f.burro) return '🐴 ';
+    const i = (st.out || []).indexOf(p);
+    return i >= 0 ? (['🥇 ', '🥈 ', '🥉 '][i] || '✔ ') : '';
+  };
   const rows = Array.from({ length: n }, (_, p) => {
     const h = st.hands[p] || [];
     return `<div class="rrow">
-      <span class="rn">${p === view.mySeat ? 'Você' : esc(seatName(p))}</span>
+      <span class="rn">${medal(p)}${p === view.mySeat ? 'Você' : esc(seatName(p))}</span>
       <span class="rt">${h.length ? h.map(t => miniTile(t.a, t.b)).join('') : '<i style="opacity:.6">bateu</i>'}</span>
       <span class="rs">${CORE.handSum(h)}</span>
     </div>`;
@@ -2075,11 +2224,11 @@ function revealHTML(){
   const sums = st.hands.map(CORE.handSum);
   const tMy = n === 2 ? sums[myT] : sums[myT] + sums[myT + 2];
   const tOp = n === 2 ? sums[1 - myT] : sums[1 - myT] + sums[(1 - myT) + 2];
+  const teamsum = st.buy ? '' :
+    `<div class="teamsum"><span class="${tMy <= tOp ? 'win' : ''}">Nós: ${tMy} na mão</span>
+     <span class="${tOp <= tMy ? 'win' : ''}">Eles: ${tOp}</span></div>`;
   return `<h2>${head}</h2><p class="sub">${sub}</p>
-    <div class="reveal">${rows}${dorme}
-      <div class="teamsum"><span class="${tMy <= tOp ? 'win' : ''}">Nós: ${tMy} na mão</span>
-      <span class="${tOp <= tMy ? 'win' : ''}">Eles: ${tOp}</span></div>
-    </div>`;
+    <div class="reveal">${rows}${dorme}${teamsum}</div>`;
 }
 
 /* ---------- confete ---------- */
@@ -2452,12 +2601,11 @@ function showScreen(id){
 }
 
 const MODE_LIST = [
-  { lbl: '👥 4 na mesa · 6 pedras + dorme',   cfg: { n: 4, per: 6, buy: false } },
-  { lbl: '👥 4 na mesa · 7 pedras, sem dorme', cfg: { n: 4, per: 7, buy: false } },
-  { lbl: '🐴 4 na mesa · burrinho (compra)',   cfg: { n: 4, per: 6, buy: true } },
-  { lbl: '⚔️ 1 contra 1 · 6 pedras + dorme',   cfg: { n: 2, per: 6, buy: false } },
-  { lbl: '⚔️ 1 contra 1 · 7 pedras',           cfg: { n: 2, per: 7, buy: false } },
-  { lbl: '🐴 1 contra 1 · burrinho',           cfg: { n: 2, per: 7, buy: true } }
+  { lbl: '👥 4 na mesa · 6 pedras + dorme',        cfg: { n: 4, per: 6, buy: false } },
+  { lbl: '👥 4 na mesa · 7 pedras, sem dorme',      cfg: { n: 4, per: 7, buy: false } },
+  { lbl: '🐴 4 na mesa · jogo do burro (todos por si)', cfg: { n: 4, per: 4, buy: true } },
+  { lbl: '⚔️ 1 contra 1 · 7 pedras + dorme',        cfg: { n: 2, per: 7, buy: false } },
+  { lbl: '🐴 1 contra 1 · jogo do burro',           cfg: { n: 2, per: 4, buy: true } }
 ];
 const modeLabel = c => (MODE_LIST.find(m =>
   m.cfg.n === (c.n || 4) && m.cfg.per === (c.per || 6) && !!m.cfg.buy === !!c.buy) || MODE_LIST[0]).lbl;
@@ -2500,11 +2648,22 @@ function localDeal(){
     const tx = CHAT.maybe(s, seatAv(s), 'hi');
     if (tx) setTimeout(() => showBubble(s, esc(tx)), 900);
   }
+  if (LOCAL.pick) {
+    LOCAL.pick = false;
+    setTimeout(() => showSaiBar(2, sel => {
+      view.st.starter = sel; view.st.turn = sel;
+      if (sel === 2) showBubble(2, esc(pick(['Deixa comigo 😤', 'Sai eu então!', 'Fechou, parceiro'])), 1700);
+      renderAll();
+      setTimeout(localTick, sel === 2 ? 900 : 0);
+    }), 700);
+    return;
+  }
   setTimeout(localTick, 1200);
 }
 
 async function localTick(){
   if (!LOCAL.on) return;
+  if (window.__PICKME) return;                    // esperando o "sai tu ou saio eu"
   const st = view.st;
   if (st.finished) return localFinish();
 
@@ -2578,7 +2737,12 @@ async function localTick(){
     CORE.applyPlay(st, p, mv.tileId, mv.end);
     SND.place(); vibrate(10);
     renderAll();
-    botChatterPost(p, st, mv);
+    if (st.buy && !st.finished && !st.hands[p].length) {
+      SND.bat();
+      const pos = (st.out || []).length;
+      const med = ['🥇', '🥈', '🥉'][pos - 1] || '✔';
+      showBubble(p, esc(pick([`Bati! ${med}`, 'Tô fora! Se virem aí 😎', 'Primeiro a sair, uó!'])), 2400);
+    } else botChatterPost(p, st, mv);
   }
   await sleep(rnd(700, 1000));
   localTick();
@@ -2601,15 +2765,39 @@ function localHumanPlay(tileId, end){
   if (!LOCAL.on || st.turn !== 0 || busy || st.finished) return;
   clearTimeout(LOCAL.idle);
   busy = true; selected = null;
+  if (window.__PICKME) return;
   try { CORE.applyPlay(st, 0, tileId, end); } catch (e) { busy = false; return; }
   SND.place(); vibrate(12);
+  if (st.buy && !st.finished && !st.hands[0].length) {
+    SND.bat(); confetti(18);
+    const pos = (st.out || []).length;
+    toast(`${['🥇', '🥈', '🥉'][pos - 1] || '✔'} Você bateu! Agora é só assistir`);
+  }
   renderAll();
   setTimeout(() => { if (LOCAL.on) { localTick(); } }, rnd(650, 950));
+}
+
+let saiCb = null;
+function showSaiBar(parceiro, cb){
+  saiCb = cb;
+  window.__PICKME = true;
+  $('#saiNome').textContent = seatName(parceiro);
+  $('#saiBar').classList.remove('hidden');
+  $('#saiEu').onclick = () => { SND.tap(); const f = saiCb; hideSaiBar(); if (f) f(view.mySeat); };
+  $('#saiTu').onclick = () => { SND.tap(); const f = saiCb; hideSaiBar(); if (f) f(parceiro); };
+  renderHand();
+}
+function hideSaiBar(){
+  saiCb = null;
+  window.__PICKME = false;
+  const el = $('#saiBar');
+  if (el) el.classList.add('hidden');
 }
 
 async function localFinish(){
   const st = view.st, f = st.finished, m = LOCAL.m;
   clearTimeout(LOCAL.idle); busy = true;
+  if (f.type === 'burro') return localFinishBurro(st, f, m);
   if (f.team != null) m.score[f.team] += f.points;
   m.nextStarter = CORE.nextStarterFrom(st);
   const myT = 0;
@@ -2639,16 +2827,9 @@ async function localFinish(){
   if (over) {
     btns = [{ label: 'Ver resultado', fn: () => { closeModal(); localMatchEnd(); } }];
   } else if (f.type === 'batida' && nn === 4 && f.team === 0) {
-    // nossa dupla bateu: "sai tu ou saio eu?"
-    extra = `<p class="sub">Dupla venceu — <b>sai tu ou saio eu?</b> 😏</p>`;
-    btns = [
-      { label: '🫡 Eu saio', fn: () => { m.nextStarter = 0; closeModal(); localDeal(); } },
-      { label: `👉 Sai ${seatName(2)}`, fn: () => {
-          m.nextStarter = 2; closeModal();
-          showBubble(2, esc(pick(['Deixa comigo 😤', 'Sai eu então!', 'Fechou, parceiro'])), 1700);
-          setTimeout(localDeal, 600);
-        } }
-    ];
+    // nossa dupla bateu: a escolha vem DEPOIS das pedras novas, olhando a mão
+    LOCAL.pick = true;
+    btns = [{ label: 'Próxima mão', fn: () => { closeModal(); localDeal(); } }];
   } else {
     if (f.type === 'batida' && nn === 4 && f.team === 1 && chance(.3)) {
       // a dupla deles também conversa: às vezes o parceiro sai
@@ -2664,8 +2845,45 @@ async function localFinish(){
   showModal(corpo + extra, btns);
 }
 
+async function localFinishBurro(st, f, m){
+  m.pen = m.pen || [0, 0, 0, 0];
+  m.pen[f.burro]++;
+  m.nextStarter = f.burro;
+  const souEu = f.burro === 0;
+  if (souEu) { SND.tranca(); vibrate(80); }
+  else { SND.slap(); confetti(20); vibrate([30, 40]); }
+  if (!souEu) setTimeout(() => {
+    const tx = pick(['Ihh, sobrou pra mim 🫠', 'Lá vem pedra extra…', 'Eita, virei alvo']);
+    showBubble(f.burro, esc(tx), 2200);
+  }, 400);
+  renderAll();
+  await sleep(1800);
+  if (!LOCAL.on) return;
+  if (m.pen[f.burro] >= 4) {
+    let corpo;
+    try { corpo = revealHTML(); } catch (e) { corpo = ''; }
+    return showModal(corpo, [{ label: '🐴 Ver o burro', fn: () => { closeModal(); localMatchEnd(); } }]);
+  }
+  let corpo;
+  try { corpo = revealHTML(); } catch (e) { corpo = `<h2>Fim da rodada</h2>`; }
+  showModal(corpo, [{ label: 'Próxima rodada', fn: () => { closeModal(); localDeal(); } }]);
+}
+
 function localMatchEnd(){
   const m = LOCAL.m;
+  if (view.st && view.st.buy) {
+    const b = m.pen.findIndex(x => x >= 4);
+    const mine = b !== 0;
+    bumpStats(mine);
+    if (mine) { SND.win(); confetti(); } else SND.tranca();
+    return showModal(
+      `<h2>${b === 0 ? '🐴 Você é o BURRO!' : '🐴 ' + esc(seatName(b)) + ' é o BURRO!'}</h2>
+       <p class="sub">${b === 0 ? 'a mão ia chegar a 8 pedras… acontece 🫠' : 'não aguentou o castigo — 8 pedras é demais'}</p>`,
+      [
+        { label: '🔁 Revanche', fn: () => { closeModal(); startLocal(view.cfg); } },
+        { label: 'Voltar ao início', ghost: true, fn: () => { closeModal(); leaveLocal(); } }
+      ]);
+  }
   const winner = m.score[0] >= m.target ? 0 : 1;
   const mine = winner === 0;
   bumpStats(mine);
@@ -2693,7 +2911,7 @@ function leaveLocal(){
 const ON = {
   code: null, id: null, sub: null, hb: null,
   lastSeq: -1, seen: new Set(), joinedAt: 0,
-  dealTimer: null, botFor: -1, celebFor: -1, tmoFor: -1, warn: null, pauseAsk: 0, pausedPrev: false,
+  dealTimer: null, botFor: -1, celebFor: -1, tmoFor: -1, warn: null, pauseAsk: 0, pausedPrev: false, pick: null, pickFor: -1,
   finShown: -1, endShown: false, think: null, thinkSeat: -1, idle: null
 };
 
@@ -2770,7 +2988,7 @@ const hostSeatOf = room => {
 
 function enterRoom(code){
   ON.code = code; ON.lastSeq = -1; ON.seen = new Set(); ON.joinedAt = now();
-  ON.finShown = -1; ON.endShown = false; ON.botFor = -1; ON.celebFor = -1; ON.tmoFor = -1; ON.pauseAsk = 0; ON.pausedPrev = false;
+  ON.finShown = -1; ON.endShown = false; ON.botFor = -1; ON.celebFor = -1; ON.tmoFor = -1; ON.pauseAsk = 0; ON.pausedPrev = false; ON.pick = null; ON.pickFor = -1; hideSaiBar();
   view.online = true;
   onHumanPlay = onlineHumanPlay; onHumanBuy = onlineHumanBuy;
   onBotTake = seat => {
@@ -2886,10 +3104,24 @@ function processG(g, fromMe){
   selected = null;
   busy = view.st.turn !== view.mySeat || !!view.st.finished;
 
+  ON.pick = g.pick || null;
+  window.__PICKWAIT = !!(ON.pick && ON.pick.s !== view.mySeat && !view.st.finished);
+  if (!ON.pick || view.st.finished) hideSaiBar();
   if (g.ev && g.ev.k === 'deal') { closeModal(); ON.endShown = false; if (!first) { shuffleFX(); rerollAmbience(); } }
+  if (g.ev && g.ev.k === 'pick' && !mine && g.ev.by >= 0 && g.ev.s !== g.ev.by) {
+    SND.tap();
+    showBubble(g.ev.by, 'Sai tu, parceiro 😉', 2200);
+  }
   if (!first && g.ev) {
     if (g.ev.k === 'buy') SND.deal(1);
     if (g.ev.drew) SND.deal(Math.min(g.ev.drew, 4));
+    if (g.ev.k === 'play' && view.st.buy && !view.st.finished &&
+        view.st.hands[g.ev.s] && !view.st.hands[g.ev.s].length) {
+      const pos = (view.st.out || []).length;
+      const med = ['🥇', '🥈', '🥉'][pos - 1] || '✔';
+      if (g.ev.s === view.mySeat) { SND.bat(); confetti(18); toast(`${med} Você bateu! Agora é só assistir`); }
+      else { SND.bat(); showBubble(g.ev.s, esc(`Bati! ${med}`), 2200); }
+    }
   }
   if (!mine && !first && g.ev) {
     if (g.ev.k === 'play') { SND.place(); vibrate(8); }
@@ -2905,14 +3137,28 @@ function processG(g, fromMe){
     if (ON.finShown !== g.seq) { ON.finShown = g.seq; finishOnline(g); }
     return;
   }
+  if (ON.pick && ON.pick.s === view.mySeat && ON.pickFor !== g.seq) {
+    ON.pickFor = g.seq;
+    const parceiro = (view.mySeat + 2) % 4;
+    setTimeout(() => {
+      if (!ON.pick || ON.pick.s !== view.mySeat) return;
+      showSaiBar(parceiro, sel => {
+        const st2 = CORE.unpack(CORE.pack(view.st));
+        st2.starter = sel; st2.turn = sel;
+        writeG(st2, view.m, { k: 'pick', s: sel, by: view.mySeat });
+      });
+    }, 600);
+  }
   if (view.st.turn === view.mySeat) {
-    busy = false; renderHand();
-    const lm = CORE.legalMoves(view.st, view.mySeat);
-    if (!lm.length) {
-      if (view.st.buy && view.st.dorme.length) armIdle();   // compra na mão; relógio segue valendo
-      else autoPassOnline(g.seq);
+    busy = ON.pick ? true : false; renderHand();
+    if (!ON.pick) {
+      const lm = CORE.legalMoves(view.st, view.mySeat);
+      if (!lm.length) {
+        if (view.st.buy && view.st.dorme.length) armIdle();   // compra na mão; relógio segue valendo
+        else autoPassOnline(g.seq);
+      }
+      else armIdle();
     }
-    else armIdle();
   } else {
     ON.thinkSeat = view.st.turn;
     ON.think = setTimeout(() => showThink(ON.thinkSeat), 700);
@@ -2942,6 +3188,13 @@ async function writeG(st2, m2, ev, extraRoot){
 function finPatch(st2, m2){
   const f = st2.finished, extra = {};
   if (!f) return extra;
+  if (f.type === 'burro') {
+    m2.pen = [...(m2.pen || [0, 0, 0, 0])];
+    m2.pen[f.burro]++;
+    m2.nextStarter = f.burro;
+    if (m2.pen[f.burro] >= 4) extra.phase = 'end';   // mão chegaria a 8: coroou o BURRO
+    return extra;
+  }
   if (f.team != null) m2.score[f.team] += f.points;
   m2.nextStarter = CORE.nextStarterFrom(st2);
   if (m2.score[0] >= m2.target || m2.score[1] >= m2.target) extra.phase = 'end';
@@ -3015,6 +3268,14 @@ function hostDuties(room){
     return;
   }
   clearTimeout(ON.dealTimer); ON.dealTimer = null;
+
+  if (g.pick) {
+    if (now() - (g.t || 0) > 45000) {              // decisor sumiu: mantém quem bateu e segue
+      const st2 = CORE.unpack(g.st);
+      writeG(st2, g.m, { k: 'pick', s: st2.turn, by: -1 });
+    }
+    return;
+  }
 
   const p = st ? st.turn : -1;
   const pl = (room.players || {})[p];
@@ -3129,17 +3390,31 @@ async function dealOnline(freshMatch){
     ? { ...base.m, score: [...base.m.score] }
     : CORE.newMatch((view.cfg && view.cfg.target) || 6);
   const st = CORE.newRound(m, view.cfg);
+  let pickSeat = null;
+  if (!freshMatch && base && base.st) {
+    const pst = CORE.unpack(base.st);
+    const f = pst.finished;
+    if (f && f.type === 'batida' && (pst.n || 4) === 4) {
+      const bt = f.player, pr = (bt + 2) % 4;
+      const isBot = s => { const pl = (room.players || {})[s]; return pl && pl.bot; };
+      if (!isBot(bt)) pickSeat = bt;
+      else if (!isBot(pr)) pickSeat = pr;
+      else if (chance(.3)) { st.starter = pr; st.turn = pr; }   // dupla toda robô resolve sozinha
+    }
+  }
   const seq = (base ? base.seq : 0) + 1;
   ON.finShown = -1;
   await NET.PATCH('rooms/' + ON.code, {
     phase: 'play', chat: null,
-    g: { seq, st: CORE.pack(st), m, ev: { k: 'deal', s: view.mySeat }, t: now() }
+    g: { seq, st: CORE.pack(st), m, ev: { k: 'deal', s: view.mySeat }, t: now(),
+         pick: pickSeat != null ? { s: pickSeat } : null }
   }).catch(() => toast('Não consegui embaralhar — tenta de novo'));
 }
 
 async function finishOnline(g){
   const st = view.st, f = st.finished, myT = TEAM_OF(view.mySeat);
   clearIdle(); clearThink();
+  if (f.type === 'burro') return finishBurroOnline(g, st, f);
   if (f.type === 'batida') {
     (f.team === myT ? SND.bat : SND.slap)();
     if (f.team === myT) confetti(32);
@@ -3153,34 +3428,13 @@ async function finishOnline(g){
   if (cur.phase === 'end') return matchEndOnline();
   if (cur.g && cur.g.seq !== g.seq) return;              // a próxima mão já chegou
   const host = view.mySeat === view.hostSeat;
-  const nn = st.n || 4;
-  const parceiro = (view.mySeat + 2) % 4;
-  const escolho = f.type === 'batida' && nn === 4 && f.team === myT &&
-    (f.player === view.mySeat || (view.seats[f.player] && view.seats[f.player].bot));
-  const escolhe = async quem => {
-    await NET.PATCH('rooms/' + ON.code + '/g/m', { nextStarter: quem }).catch(() => {});
-    if (quem !== view.mySeat) NET.PATCH('rooms/' + ON.code + '/chat',
-      { [now() + '_' + view.mySeat]: { s: view.mySeat, t: 'Sai tu, parceiro 😉', ts: now() } }).catch(() => {});
-  };
-  const daPedras = () => { clearTimeout(ON.dealTimer); ON.dealTimer = null; dealOnline(false); };
-  let btns;
-  if (escolho) {
-    btns = host
-      ? [{ label: '🫡 Eu saio · dar pedras', fn: async () => { closeModal(); await escolhe(view.mySeat); daPedras(); } },
-         { label: `👉 Sai ${seatName(parceiro)}`, fn: async () => { closeModal(); await escolhe(parceiro); daPedras(); } }]
-      : [{ label: '🫡 Eu saio', fn: async () => { closeModal(); await escolhe(view.mySeat); } },
-         { label: `👉 Sai ${seatName(parceiro)}`, ghost: true, fn: async () => { closeModal(); await escolhe(parceiro); } }];
-  } else {
-    btns = host
-      ? [{ label: 'Dar as pedras agora', fn: () => { closeModal(); daPedras(); } }]
-      : [{ label: 'Beleza', ghost: true, fn: closeModal }];
-  }
+  const btns = host
+    ? [{ label: 'Dar as pedras agora', fn: () => { closeModal(); clearTimeout(ON.dealTimer); ON.dealTimer = null; dealOnline(false); } }]
+    : [{ label: 'Beleza', ghost: true, fn: closeModal }];
   let corpo;
   try { corpo = revealHTML(); }
   catch (e) { corpo = `<h2>Fim da mão</h2><p class="sub">placar atualizado</p>`; }
-  const m = showModal(corpo
-    + (escolho ? `<p class="sub">Dupla venceu — <b>sai tu ou saio eu?</b> 😏</p>` : '')
-    + `<p class="sub" id="nextIn"></p>`, btns);
+  const m = showModal(corpo + `<p class="sub" id="nextIn"></p>`, btns);
   let s = 12;
   const iv = setInterval(() => {
     const el = document.getElementById('nextIn');
@@ -3193,10 +3447,52 @@ async function finishOnline(g){
   if (el0) el0.textContent = 'a próxima mão vem em 12s ⏳';
 }
 
+async function finishBurroOnline(g, st, f){
+  const souEu = f.burro === view.mySeat;
+  if (souEu) { SND.tranca(); vibrate(80); }
+  else { SND.slap(); confetti(20); }
+  renderAll();
+  await sleep(1800);
+  const cur = ON.sub && ON.sub.get();
+  if (!cur || !ON.code) return;
+  if (cur.phase === 'end') return matchEndOnline();
+  if (cur.g && cur.g.seq !== g.seq) return;
+  const host = view.mySeat === view.hostSeat;
+  let corpo;
+  try { corpo = revealHTML(); } catch (e) { corpo = `<h2>Fim da rodada</h2>`; }
+  showModal(corpo + `<p class="sub" id="nextIn"></p>`, host
+    ? [{ label: 'Próxima rodada', fn: () => { closeModal(); clearTimeout(ON.dealTimer); ON.dealTimer = null; dealOnline(false); } }]
+    : [{ label: 'Beleza', ghost: true, fn: closeModal }]);
+  let s = 12;
+  const iv = setInterval(() => {
+    const el = document.getElementById('nextIn');
+    if (!el) return clearInterval(iv);
+    s--;
+    el.textContent = s > 0 ? `a próxima rodada vem em ${s}s ⏳` : 'embaralhando…';
+    if (s <= 0) clearInterval(iv);
+  }, 1000);
+  const el0 = document.getElementById('nextIn');
+  if (el0) el0.textContent = 'a próxima rodada vem em 12s ⏳';
+}
+
 function matchEndOnline(){
   if (ON.endShown) return;
   ON.endShown = true;
   const m = view.m, myT = TEAM_OF(view.mySeat);
+  if (view.cfg && view.cfg.buy) {
+    const b = (m.pen || []).findIndex(x => x >= 4);
+    const mine = b !== view.mySeat;
+    bumpStats(mine);
+    if (mine) { SND.win(); confetti(); } else SND.tranca();
+    const host = view.mySeat === view.hostSeat;
+    return showModal(
+      `<h2>${b === view.mySeat ? '🐴 Você é o BURRO!' : '🐴 ' + esc(seatName(b)) + ' é o BURRO!'}</h2>
+       <p class="sub">${b === view.mySeat ? 'a mão ia chegar a 8 pedras… acontece 🫠' : 'levou 4 castigos — a mesa agradece 😄'}</p>`,
+      host
+        ? [{ label: '🔁 Revanche', fn: () => { closeModal(); dealOnline(true); } },
+           { label: 'Encerrar a mesa', ghost: true, fn: () => { closeModal(); leaveOnline(true); } }]
+        : [{ label: 'Beleza', ghost: true, fn: closeModal }]);
+  }
   const winner = m.score[0] >= m.target ? 0 : 1;
   const mine = winner === myT;
   bumpStats(mine);
@@ -3249,7 +3545,7 @@ function renderWait(){
   const bm = $('#btnMode');
   if (bm) { bm.textContent = modeLabel(view.cfg); bm.disabled = !host; }
   const tt = document.querySelector('.teamtags');
-  if (tt) tt.style.display = n === 2 ? 'none' : '';
+  if (tt) tt.style.display = (n === 2 || view.cfg.buy) ? 'none' : '';
   const grid = $('#seatGrid'); grid.innerHTML = '';
   grid.classList.toggle('n2', n === 2);
   for (let s = 0; s < n; s++) {
@@ -3268,8 +3564,9 @@ function renderWait(){
   }
   const nHum = view.seats.filter(p => p && !p.bot).length;
   $('#waitMsg').innerHTML = host
-    ? (n === 2 ? 'É mano a mano — manda o código pro rival. Pode começar que vaga vira robô.'
-               : 'Manda o código pra galera. Dupla é quem senta de frente — pode começar que vaga vira robô.')
+    ? (view.cfg.buy ? '🐴 No burro é todos por si! Manda o código — pode começar que vaga vira robô.'
+       : n === 2 ? 'É mano a mano — manda o código pro rival. Pode começar que vaga vira robô.'
+                 : 'Manda o código pra galera. Dupla é quem senta de frente — pode começar que vaga vira robô.')
     : `Esperando <b>${esc(seatName(view.hostSeat))}</b> dar as pedras… (${nHum}/${n} na mesa)`;
   $('#btnStart').classList.toggle('hidden', !host);
   $('#btnSwap').classList.toggle('hidden', !host || n === 2);
