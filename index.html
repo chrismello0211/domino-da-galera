@@ -360,7 +360,13 @@ input{font-family:inherit;}
 }
 #turnChip.wait{background:rgba(0,0,0,.55);color:var(--cream);border:1px solid rgba(255,255,255,.2);font-family:'Patrick Hand','Segoe Print','Comic Sans MS',sans-serif;font-size:15px;letter-spacing:.5px;}
 @keyframes chipIn{from{transform:translate(-50%,8px);opacity:0;}}
-#hand{flex:1;display:flex;gap:8px;justify-content:center;flex-wrap:nowrap;overflow-x:auto;padding:8px 4px 2px;}
+#hand{flex:1;display:flex;gap:8px;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding:8px 4px 2px;
+  scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);}
+#hand::-webkit-scrollbar{display:none;}
+#hand .ht:first-child{margin-left:auto;}
+#hand .ht:last-child{margin-right:auto;}
 .ht{
   position:relative;flex:0 0 auto;display:flex;flex-direction:column;
   width:calc(clamp(40px,12vw,58px) * var(--tileK,1));aspect-ratio:1/2;
@@ -587,8 +593,13 @@ input{font-family:inherit;}
     box-shadow:-4px 0 14px rgba(0,0,0,.5), inset 3px 0 0 rgba(255,255,255,.07);}
   #handbar.myturn{box-shadow:-4px 0 14px rgba(0,0,0,.5), inset 3px 0 0 var(--amber);}
   #meCol{flex-direction:column;width:auto;gap:3px;}
+  #game{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);}
   #hand{flex:1;display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:min-content;
-    gap:6px 4px;justify-items:center;align-content:start;overflow-y:auto;overflow-x:hidden;padding:2px 0;}
+    gap:6px 4px;justify-items:center;align-content:start;overflow-y:auto;overflow-x:hidden;padding:2px 0;
+    -webkit-mask-image:linear-gradient(180deg,transparent,#000 12px,#000 calc(100% - 12px),transparent);
+    mask-image:linear-gradient(180deg,transparent,#000 12px,#000 calc(100% - 12px),transparent);}
+  #hand .ht:first-child{margin-left:0;}
+  #hand .ht:last-child{margin-right:0;}
   .ht{width:calc(clamp(33px,10vh,44px) * var(--tileK,1));}
   #turnChip{top:auto;bottom:10px;left:auto;right:calc(100% + 12px);transform:none;white-space:nowrap;}
   #saiBar{left:auto;right:calc(100% + 12px);bottom:8px;top:auto;transform:none;
@@ -2088,7 +2099,8 @@ function startDrag(ev, el, tile, can, myTurn){
   dragBusy = true;
   const st0 = view.st;
   const pid = ev.pointerId;
-  const drag = { mode: null, hot: null, clone: null, moved: false, done: false };
+  const drag = { mode: null, hot: null, clone: null, moved: false, done: false, t0: Date.now(), s0: 0, eixoX: true };
+  const pai = el.parentNode;
   const sx = ev.clientX, sy = ev.clientY;
   try { el.setPointerCapture(pid); } catch (e) {}
 
@@ -2123,6 +2135,17 @@ function startDrag(ev, el, tile, can, myTurn){
       const fora = e.clientY < hb.top - 6 || e.clientX < hb.left - 6 ||
                    e.clientX > hb.right + 6 ||
                    (barraDeitada && dy < -16 && Math.abs(dy) > Math.abs(dx));
+      // mão lotada: deslizada RÁPIDA no eixo da fila = rolar; segurou um instante = organizar
+      const segurou = Date.now() - drag.t0 >= 170;
+      const podeRolar = barraDeitada ? pai.scrollWidth > pai.clientWidth + 4
+                                     : pai.scrollHeight > pai.clientHeight + 4;
+      const noEixo = barraDeitada ? Math.abs(dx) > Math.abs(dy) : Math.abs(dy) > Math.abs(dx);
+      if (!fora && !segurou && podeRolar && noEixo) {
+        drag.mode = 'scroll';
+        drag.eixoX = barraDeitada;
+        drag.s0 = barraDeitada ? pai.scrollLeft : pai.scrollTop;
+        return;
+      }
       if (fora) {
         if (!myTurn || !can) {
           drag.mode = 'deny';
@@ -2141,6 +2164,11 @@ function startDrag(ev, el, tile, can, myTurn){
         makeClone(e);
         SND.sort(.45, rnd(1.05, 1.18));
       }
+      return;
+    }
+    if (drag.mode === 'scroll') {
+      if (drag.eixoX) pai.scrollLeft = drag.s0 - dx;
+      else pai.scrollTop = drag.s0 - dy;
       return;
     }
     if (drag.mode === 'play') {
@@ -2173,19 +2201,33 @@ function startDrag(ev, el, tile, can, myTurn){
         return;
       }
       if (!el.parentNode) return;
-      const sibs = [...el.parentNode.children].filter(x => x !== el);
-      // funciona em fila (retrato) e em grade (deitado): acha o vizinho mais perto
-      let alvo = null, ar = null, best = 1e9;
+      // rola sozinho quando o dedo encosta na borda da fila
+      const pr = pai.getBoundingClientRect();
+      if (pai.scrollWidth > pai.clientWidth + 4) {
+        if (e.clientX < pr.left + 34) pai.scrollLeft -= 9;
+        else if (e.clientX > pr.right - 34) pai.scrollLeft += 9;
+      }
+      if (pai.scrollHeight > pai.clientHeight + 4) {
+        if (e.clientY < pr.top + 30) pai.scrollTop -= 9;
+        else if (e.clientY > pr.bottom - 30) pai.scrollTop += 9;
+      }
+      // alvo em coordenadas de CONTEÚDO (imune ao pula-pula do scroll)
+      const px = e.clientX - pr.left + pai.scrollLeft;
+      const py = e.clientY - pr.top + pai.scrollTop;
+      const sibs = [...pai.children].filter(x => x !== el);
+      let alvo = null, ac = null, best = 1e9;
       for (const s of sibs) {
         const r = s.getBoundingClientRect();
-        const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
-        if (d < best) { best = d; alvo = s; ar = r; }
+        const cx = r.left - pr.left + pai.scrollLeft + r.width / 2;
+        const cy = r.top - pr.top + pai.scrollTop + r.height / 2;
+        const d = Math.hypot(px - cx, py - cy);
+        if (d < best) { best = d; alvo = s; ac = { cx, cy, w: r.width, h: r.height }; }
       }
       let target = null;
       if (alvo) {
-        const antes = e.clientY < ar.top + ar.height * .38 ? true
-                    : e.clientY > ar.top + ar.height * .62 ? false
-                    : e.clientX < ar.left + ar.width / 2;
+        const antes = py < ac.cy - ac.h * .12 ? true
+                    : py > ac.cy + ac.h * .12 ? false
+                    : px < ac.cx;
         target = antes ? alvo : alvo.nextSibling;
       }
       if (target !== el.nextSibling) {
