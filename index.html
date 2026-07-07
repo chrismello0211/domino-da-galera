@@ -1425,153 +1425,366 @@ const AVATARS = [
 const AV_NAME = Object.fromEntries(AVATARS.map(a => [a.id, a.n]));
 // cada persona tem vários nomes possíveis — a mesa nunca é igual
 const NAME_POOL = {
-  zefa:     ['Dona Zefa', 'Dona Cotinha', 'Vó Lourdes', 'Dona Nair'],
-  tiao:     ['Tião', 'Seu Bastião', 'Zé da Roça', 'Seu Firmino'],
-  beto:     ['Beto', 'Betinho', 'Juninho', 'Léo'],
-  nino:     ['Seu Nino', 'Seu Waldir', 'Barbosa', 'Seu Ariovaldo'],
-  rosinha:  ['Rosinha', 'Cidinha', 'Dona Flor', 'Ritinha'],
-  loro:     ['Loro', 'Currupaco', 'Bicudo', 'Loro Zé'],
-  caramelo: ['Caramelo', 'Pipoca', 'Bilu', 'Farofa'],
-  neno:     ['Neno', 'Dudu', 'Vini', 'Kadu']
+  zefa:     ['Dona Zefa', 'Dona Cotinha', 'Vó Lourdes', 'Dona Nair', 'Vó Mercês', 'Dona Ritinha',
+             'Dona Socorro', 'Vó Bilica', 'Dona Filó', 'Dona Iraci'],
+  tiao:     ['Tião', 'Seu Bastião', 'Zé da Roça', 'Seu Firmino', 'Compadre Chico', 'Seu Ademar',
+             'Nezinho', 'Seu Raimundo', 'Zé Bento', 'Seu Doca'],
+  beto:     ['Beto', 'Betinho', 'Juninho', 'Léo', 'Cadu', 'Dudinha', 'Galego', 'Pelé da Rua',
+             'Marquinho', 'Careca'],
+  nino:     ['Seu Nino', 'Seu Waldir', 'Barbosa', 'Seu Ariovaldo', 'Doutor Osvaldo', 'Seu Peixoto',
+             'Major Nunes', 'Seu Arlindo', 'Mestre Didi', 'Seu Baltazar'],
+  rosinha:  ['Rosinha', 'Cidinha', 'Dona Flor', 'Ritinha', 'Lelê', 'Fatinha', 'Bel', 'Nega Lia',
+             'Marizete', 'Dorinha'],
+  loro:     ['Loro', 'Currupaco', 'Bicudo', 'Loro Zé', 'Papado', 'Loro Juca', 'Grito', 'Penacho',
+             'Loro Bino', 'Farofinha'],
+  caramelo: ['Caramelo', 'Pipoca', 'Bilu', 'Farofa', 'Bidu', 'Rabito', 'Pretinho', 'Costelinha',
+             'Vira-Lata', 'Bolota'],
+  neno:     ['Neno', 'Dudu', 'Vini', 'Kadu', 'Pedrinho', 'Gugu', 'Nando', 'Betão Jr.', 'Icaro',
+             'Yuri']
 };
-const botName = av => pick(NAME_POOL[av] || [AV_NAME[av]]);
+const botName = av => pickFresh('nome:' + av, NAME_POOL[av] || [AV_NAME[av]]);
 const avSVG = id => `<svg aria-hidden="true"><use href="#av-${id}"></use></svg>`;
 
 /* falas prontas — cada persona tem seu jeito; 'generic' cobre o resto */
 const FR = {
   generic: {
-    hi:        ['Bora!', 'Embaralha bem essa aí', 'Hoje eu tô inspirado'],
-    pass:      ['Passo…', 'Tô seco 😩', 'Sem pedra pra essa', 'Bati na mesa: passo'],
-    pensa:     ['Peraí…', 'Deixa eu ver…', 'Hmm…', 'Essa tá difícil', 'Calma, calma…', 'Tenho duas saídas aqui…'],
-    forced:    ['A maior é minha, respeita', 'Saindo com a graúda'],
-    dbl:       ['Carroça na mesa!', 'Desce, carroça'],
-    lock:      ['Segura essa ponta 😏', 'Fecha aí pra ele'],
-    oneLeft:   ['Última pedrinha…', 'Falta uma 👀'],
-    bateu:     ['BATI! 🎉', 'Fechou a conta!', 'Acabou o baile'],
-    bateuParc: ['Boa, parceiro!', 'É NOIS! 🤝', 'Dupla afinada'],
-    bateuAdv:  ['Ah, não…', 'Foi de pouquinho', 'Na próxima a gente pega'],
-    trancou:   ['Trancou geral 🔒', 'Ninguém joga mais nada'],
-    trancaWin: ['Tranca boa é tranca nossa', 'Contando pedrinha… ganhamos!'],
-    trancaLose:['Essa tranca doeu', 'Perdemos no peso 😩'],
-    waitLong:  ['Hoje ainda? ⏳', 'Vai logo, uai', 'Tô criando raiz aqui'],
-    reply:     ['😂', 'Sem provocar!', 'Calma, campeão']
+    hi:        ['Bora!', 'Embaralha bem essa aí', 'Hoje eu tô inspirado', 'Mesa boa é mesa cheia',
+                'Cheguei pra ganhar', 'Alguém traz um café?', 'Pedra fria, mão quente', 'Vamo que vamo'],
+    pass:      ['Passo…', 'Tô seco 😩', 'Sem pedra pra essa', 'Bati na mesa: passo', 'Pulei essa',
+                'Nada encaixa aqui', 'Essa rodada me esqueceu', 'Passo, mas anotei'],
+    pensa:     ['Peraí…', 'Deixa eu ver…', 'Hmm…', 'Essa tá difícil', 'Calma, calma…',
+                'Tenho duas saídas aqui…', 'Pensando alto não vale', 'Matemática pura isso aqui'],
+    forced:    ['A maior é minha, respeita', 'Saindo com a graúda', 'Abro eu, licença',
+                'A pesada mora aqui'],
+    dbl:       ['Carroça na mesa!', 'Desce, carroça', 'Toma uma redonda', 'Carroça servida'],
+    lock:      ['Segura essa ponta 😏', 'Fecha aí pra ele', 'Aperta desse lado', 'Ponta minha agora'],
+    oneLeft:   ['Última pedrinha…', 'Falta uma 👀', 'Uma na agulha', 'Cheirinho de batida…'],
+    oneLeftAdv:['Olha ele com UMA! 👀', 'Xiii, ficou com uma só…', 'Alerta: uma pedra ali!',
+                'Marca esse aí, tá com uma!'],
+    bateu:     ['BATI! 🎉', 'Fechou a conta!', 'Acabou o baile', 'Última no capricho!'],
+    bateuCarroca:['Batida de CARROÇA! 🎉', 'Fechei com a redonda!', 'Carroça na saída, dobrou!'],
+    bateuLalo: ['LÁ-E-LÔ, minha gente! 🎉', 'Servia dos dois lados 😏', 'Batida dupla, três pontos!'],
+    bateuCruzada:['CRUZADA!! 🎉🎉', 'A rainha das batidas!', 'Quatro pontos, anota aí!'],
+    advEspecial:['Assim não dá 😵', 'Batida de respeito, admito', 'Ninguém merece…',
+                'Foi bonito, doeu, mas foi bonito'],
+    bateuParc: ['Boa, parceiro!', 'É NOIS! 🤝', 'Dupla afinada', 'Jogou junto, venceu junto'],
+    bateuAdv:  ['Ah, não…', 'Foi de pouquinho', 'Na próxima a gente pega', 'Sorte, só sorte'],
+    trancou:   ['Trancou geral 🔒', 'Ninguém joga mais nada', 'Cadeado na mesa'],
+    trancaWin: ['Tranca boa é tranca nossa', 'Contando pedrinha… ganhamos!', 'No peso, levamos'],
+    trancaLose:['Essa tranca doeu', 'Perdemos no peso 😩', 'Fiquei pesado na hora errada'],
+    waitLong:  ['Hoje ainda? ⏳', 'Vai logo, uai', 'Tô criando raiz aqui', 'A pedra tá esfriando'],
+    capote:    ['Cheirinho de CAPOTE no ar 😏', 'Vai sair de zero hoje?', 'Tá 5 a 0, alguém liga pra família'],
+    capoteMedo:['Capote não, pelo amor…', 'Segura o capote, gente!', 'Ainda dá, ainda dá…'],
+    buyMuito:  ['Comprando a loja toda 🧱', 'Deixa alguma no dorme!', 'Vai levar o dorme pra casa?'],
+    burroSobrou:['Ihh, sobrou pra mim 🫠', 'Lá vem pedra extra…', 'Eita, virei alvo',
+                'Tô virando o burro né', 'A pedra é o de menos, dói é a zoada'],
+    burroZoa:  ['Iô, burrinho! 🐴', 'Aceita que dói menos 😂', 'Reserva o estábulo!',
+                'Quem vai de 5 pedras é você!'],
+    saiTuTopa: ['Deixa comigo 😤', 'Sai eu então!', 'Fechou, parceiro', 'Confia que eu abro bem'],
+    fimWin:    ['VITÓRIA! 🏆', 'Fecha a conta, garçom!', 'Essa mesa é nossa!'],
+    fimLose:   ['Revanche. Agora. 😤', 'Fui roubado (brincadeira… será?)', 'Amanhã tem mais'],
+    reply:     ['😂', 'Sem provocar!', 'Calma, campeão', 'Anotado 📝']
   },
   zefa: {
-    hi:        ['No meu tempo se jogava melhor 😌', 'Deixa a véia trabalhar', 'Cadê meus óculos… achei!'],
-    pensa:     ['Peraí que a vó pensa…', 'Cadê meus óculos…', 'No meu tempo isso era rápido'],
-    pass:      ['Ai meu reumatismo… passo', 'Passo, mas de olho 👀', 'Essa juventude me trancou'],
-    forced:    ['A graúda é da vovó', 'Abro eu, com respeito'],
-    dbl:       ['Toma uma carroça, fio', 'No capricho 👵'],
-    lock:      ['Fecha essa porta, fio', 'Zefa não perdoa 😏'],
+    hi:        ['No meu tempo se jogava melhor 😌', 'Deixa a véia trabalhar', 'Cadê meus óculos… achei!',
+                'Fiz bolo, mas é só pra quem ganhar', 'Sentou, jogou, respeitou'],
+    pensa:     ['Peraí que a vó pensa…', 'Cadê meus óculos…', 'No meu tempo isso era rápido',
+                'Calma, fio, a idade cobra'],
+    pass:      ['Ai meu reumatismo… passo', 'Passo, mas de olho 👀', 'Essa juventude me trancou',
+                'Passo, e olhe lá'],
+    forced:    ['A graúda é da vovó', 'Abro eu, com respeito', 'Licença que a véia começa'],
+    dbl:       ['Toma uma carroça, fio', 'No capricho 👵', 'Carroça da vovó, benzinho'],
+    lock:      ['Fecha essa porta, fio', 'Zefa não perdoa 😏', 'Tranquei igual portão de vila'],
     oneLeft:   ['Falta pouquinho pra vovó…', 'Uma só, meu bem'],
+    oneLeftAdv:['Fio, olha aquele ali com uma!', 'Esperta a vó: ele tá com UMA'],
     bateu:     ['BATEU A VÉIA! 🎉', 'Respeita a experiência!', 'Vem buscar o troco'],
-    bateuParc: ['Assim que se faz, parceiro!', 'Benza Deus essa dupla 🙏'],
+    bateuCarroca:['Carroça e batida, dois em um, fio!'],
+    bateuLalo: ['Lá-e-lô da vovó! Aprendam 😌'],
+    bateuCruzada:['CRUZADA! Isso é coisa de véia macetada!'],
+    advEspecial:['Ai meu coração, que batida…'],
+    bateuParc: ['Assim que se faz, parceiro!', 'Que dupla arretada! 🙌'],
     bateuAdv:  ['Sorte de principiante…', 'Hmpf. Embaralha de novo'],
     trancou:   ['Tranquei e vou fazer um café', 'Fechou o comércio 🔒'],
     trancaWin: ['Pedra pouca é pedra da vitória', 'A conta fecha pro nosso lado'],
     trancaLose:['Essa doeu no juízo', 'Vou fingir que não vi'],
     waitLong:  ['Fio, a novela vai começar…', 'No meu tempo era mais rápido'],
+    capote:    ['Capote, fio! Igual antigamente!'],
+    capoteMedo:['Misericórdia, capote não…'],
+    buyMuito:  ['Vai comprar o dorme inteiro, criatura?'],
+    burroSobrou:['A véia virou o burro… que vergonha 🫠', 'Sobrou pra vovó, olha isso'],
+    burroZoa:  ['Iô! 🐴 Quem diria, hein'],
+    saiTuTopa: ['Deixa com a véia 😤', 'Sai eu, fio, confia'],
+    fimWin:    ['A experiência venceu! ☕🏆'],
+    fimLose:   ['Vou fazer um chá e esquecer isso'],
     reply:     ['Ri não, fio 😤', 'Te conheço desde pequeno, viu', '😂 essa foi boa']
   },
   tiao: {
-    hi:        ['Uai, bão demais!', 'Aperta o chapéu que lá vem pedra', 'Na roça a gente joga é sério'],
+    hi:        ['Uai, bão demais!', 'Aperta o chapéu que lá vem pedra', 'Na roça a gente joga é sério',
+                'Trouxe até a viola, mas primeiro a pedra'],
     pensa:     ['Uai, peraí sô…', 'Deixa eu matutar…', 'Isso merece um cafezim antes'],
     pass:      ['Uai, passo então', 'Ocê me trancou, né?', 'Toc toc: sem pedra, sô'],
     forced:    ['Saindo com a graúda, sô', 'A maior é do caboclo aqui'],
     dbl:       ['Carroça de boi na mesa!', 'Desce redonda, sô'],
     lock:      ['Amarra o bezerro nessa ponta', 'Fechei a porteira 😏'],
     oneLeft:   ['Falta uma, prosa pouca…', 'Última do caboclo 👀'],
+    oneLeftAdv:['Ô sô, aquele ali tá com UMA!', 'Repara: uma pedra só no vizinho'],
     bateu:     ['BATI, SÔ! 🎉', 'Fechou a porteira!', 'Pode chorar no paiol'],
+    bateuCarroca:['Carroça fechando! Coisa de fazenda!'],
+    bateuLalo: ['Lá-e-lô, uai! Servia dos dois lado!'],
+    bateuCruzada:['CRUZADA, SÔ! Nem boi atravessa uma dessa!'],
+    advEspecial:['Arre égua, que batida foi essa'],
     bateuParc: ['Arretado, parceiro!', 'Nóis é bão demais, sô'],
     bateuAdv:  ['Ah, cutucou a onça…', 'Foi por um triz, uai'],
     trancou:   ['Trancou que nem porteira véia', 'Ninguém passa daqui 🔒'],
     trancaWin: ['No peso, nóis leva', 'Pedra leve, bolso cheio'],
     trancaLose:['Perdi no peso, que coisa…', 'Uai, essa não'],
     waitLong:  ['O boi já pastou e ocê nada…', 'Vai jogar hoje, sô?'],
+    capote:    ['Vai dar capote, igual chuva em janeiro'],
+    capoteMedo:['Capote na roça é vexame, segura!'],
+    buyMuito:  ['Comprou mais pedra que feira de domingo'],
+    burroSobrou:['O caboclo virou o burro… conta pra ninguém não 🫠'],
+    burroZoa:  ['Iô iô! 🐴 Bota a cangalha!'],
+    saiTuTopa: ['Sai eu, sô, deixa comigo'],
+    fimWin:    ['Vitória do sertão! 🏆'],
+    fimLose:   ['Perdi, mas o café tava bão'],
     reply:     ['Uai 😂', 'Prosa boa!', 'Deixa de moda, sô']
   },
   beto: {
-    hi:        ['Relaxa que hoje é nosso 😎', 'Deixa comigo', 'Só observa'],
+    hi:        ['Relaxa que hoje é nosso 😎', 'Deixa comigo', 'Só observa', 'Modo foco: ativado'],
     pensa:     ['Calculando… 😎', 'Xadrez, não dama', 'Confia'],
     pass:      ['Passo. Faz parte do plano', 'Ih, rapaz… passo', 'Tô guardando as boas'],
     forced:    ['Abro com estilo', 'A maior tá comigo, óbvio'],
     dbl:       ['Carroça estratégica 😎', 'Anota essa'],
     lock:      ['Tranca técnica', 'Confia no processo'],
     oneLeft:   ['Uma na agulha…', 'Quase lá 👀'],
+    oneLeftAdv:['Radar ligado: UMA pedra ali 👀'],
     bateu:     ['Bati. Tranquilo 😎', 'Como planejado', 'GG, galera'],
+    bateuCarroca:['Carroça no fechamento. Estiloso.'],
+    bateuLalo: ['Lá-e-lô. Isso é técnica 😎'],
+    bateuCruzada:['CRUZADA. Print isso aí.'],
+    advEspecial:['Ok, ISSO foi de respeito'],
     bateuParc: ['É disso que eu tô falando!', 'Confiei e deu bom 🤝'],
     bateuAdv:  ['Ok, ok… boa', 'Anotado. Vem revanche'],
     trancou:   ['Trancado. Nada pessoal 😎', 'Fim da linha'],
     trancaWin: ['Matemática básica: ganhamos', 'Peso leve, vitória pesada'],
     trancaLose:['Errei a conta dessa vez', 'Acontece nas melhores mesas'],
     waitLong:  ['Sem pressa… mas vai', 'A pedra não joga sozinha'],
+    capote:    ['5 a 0. Alguém quer pausa pra chorar? 😎'],
+    capoteMedo:['Sem capote hoje, foco!'],
+    buyMuito:  ['Investidor de pedra, esse aí'],
+    burroSobrou:['Eu, o burro? Recontagem! 🫠'],
+    burroZoa:  ['🐴 combina contigo, real'],
+    saiTuTopa: ['Saio eu. Óbvio.'],
+    fimWin:    ['GG. Fácil demais 😎🏆'],
+    fimLose:   ['Derrota técnica. Revanche.'],
     reply:     ['😎', 'Boa tentativa', 'kkk relaxa']
   },
   nino: {
-    hi:        ['Silêncio, que o mestre chegou', 'Ajeita o bigode e joga'],
+    hi:        ['Silêncio, que o mestre chegou', 'Ajeita o bigode e joga', 'Um cavalheiro nunca atrasa a pedra'],
+    pensa:     ['Um momento de reflexão…', 'O bigode está pensando'],
     pass:      ['Passo, com dignidade', 'Hoje as pedras me traíram'],
-    dbl:       ['Uma carroça pra abrilhantar'],
+    forced:    ['A abertura é minha, por mérito'],
+    dbl:       ['Uma carroça pra abrilhantar', 'Carroça, com elegância'],
+    lock:      ['Fechado, cavalheiros', 'Essa ponta agora tem dono'],
+    oneLeft:   ['Resta-me uma, e que uma'],
+    oneLeftAdv:['Atenção, senhores: uma pedra àquele lado'],
     bateu:     ['Bati! O bigode nunca falha', 'Categoria pura 🎩'],
+    bateuCarroca:['Carroça final. Assinatura minha.'],
+    bateuLalo: ['Lá-e-lô. Requinte puro.'],
+    bateuCruzada:['CRUZADA! Guardem esta data.'],
+    advEspecial:['Tiro o chapéu. Literalmente. 🎩'],
     bateuParc: ['Elegante, parceiro!'],
     bateuAdv:  ['Perdemos com classe'],
+    trancou:   ['Trancado, com licença'],
+    trancaWin: ['A balança pende ao mérito'],
+    trancaLose:['O peso me traiu, lamentável'],
     waitLong:  ['A paciência tem limite, jovem'],
+    capote:    ['Um capote seria… pedagógico'],
+    capoteMedo:['Evitemos o vexame, por favor'],
+    buyMuito:  ['Colecionador de pedras, pelo visto'],
+    burroSobrou:['Eu? O burro? Que constrangimento 🫠'],
+    burroZoa:  ['🐴 Sem ressentimentos, é claro'],
+    saiTuTopa: ['Saio eu, com a devida pompa'],
+    fimWin:    ['Vitória de fino trato 🏆'],
+    fimLose:   ['Derrota digna. Parabéns aos vencedores'],
     reply:     ['Hmm 🧐', 'Respeito é bom']
   },
   rosinha: {
-    hi:        ['Cheguei chegando! 💃', 'Hoje o axé tá comigo'],
+    hi:        ['Cheguei chegando! 💃', 'Hoje o axé tá comigo', 'Arrasta a cadeira que a rainha sentou'],
+    pensa:     ['Peraí, amores…', 'Deixa eu ver com carinho…'],
     pass:      ['Passo, mas tô linda', 'Essa mão tá salgada…'],
-    dbl:       ['Carroça com brilho ✨'],
+    forced:    ['Abro eu, com brilho ✨'],
+    dbl:       ['Carroça com brilho ✨', 'Redonda e poderosa, como eu'],
+    lock:      ['Fechei, amores 💅', 'Essa ponta é VIP agora'],
+    oneLeft:   ['Uma pedrinha e o show acaba…'],
+    oneLeftAdv:['Gente, olha ele com UMA! 😱'],
     bateu:     ['BATI, AMORES! 🎉', 'É a rainha da mesa!'],
+    bateuCarroca:['Carroça final, que luxo!'],
+    bateuLalo: ['Lá-e-lô, poderosa demais! ✨'],
+    bateuCruzada:['CRUZADA! Passarela liberada! 💃'],
+    advEspecial:['Ai que raiva, que LINDA batida'],
     bateuParc: ['Arrasou, parceiro!'],
     bateuAdv:  ['Ai ai… foi quase'],
+    trancou:   ['Tranquei, biscoito pra quem reclamar'],
+    trancaWin: ['Levinha e vitoriosa ✨'],
+    trancaLose:['Pesada na hora errada, aff'],
     waitLong:  ['Amor, o samba vai começar…'],
+    capote:    ['Capote com glitter vindo aí ✨'],
+    capoteMedo:['Capote NÃO, tenho reputação!'],
+    buyMuito:  ['Comprou a feira toda, misericórdia'],
+    burroSobrou:['EU, o burro? A diva? 🫠'],
+    burroZoa:  ['🐴 combina com teu look, viu 😂'],
+    saiTuTopa: ['Saio eu, e saio LINDA'],
+    fimWin:    ['Vitória com brilho! 🏆✨'],
+    fimLose:   ['Perdi, mas o cabelo tá ótimo'],
     reply:     ['😂😂', 'Sem recalque!']
   },
   loro: {
     hi:        ['Currupaco! Bora jogar!', 'Loro quer pedra! Loro quer pedra!'],
+    pensa:     ['Loro pensa! Loro pensa!'],
     pass:      ['Passo! Currupaco 😵', 'Loro sem pedra!'],
+    forced:    ['Graúda! Graúda do Loro!'],
     dbl:       ['Carroça! Carroça!'],
+    lock:      ['Fechou! Fechou!'],
+    oneLeft:   ['Uma! Só uma!'],
+    oneLeftAdv:['Olha! Olha! Uma pedra ali!'],
     bateu:     ['BATEU! CURRUPACO! 🎉', 'Loro campeão! Loro campeão!'],
+    bateuCarroca:['Carroça! Bateu! Carroça bateu!'],
+    bateuLalo: ['Lá-e-lô! Lá-e-lô! Dois lados!'],
+    bateuCruzada:['CRUZADA! CRUZADA! Aiaiai!'],
+    advEspecial:['Loro viu! Loro assustou!'],
     bateuParc: ['Parceiro bom! Quero biscoito!'],
     bateuAdv:  ['Loro triste…'],
+    trancou:   ['Trancou! Trancou tudo!'],
+    trancaWin: ['Ganhou! Biscoito! Ganhou!'],
+    trancaLose:['Pesado! Loro pesado!'],
     waitLong:  ['Joga! Joga! Joga!'],
+    capote:    ['Capote! Capote! Currupaco!'],
+    capoteMedo:['Capote não! Capote não!'],
+    buyMuito:  ['Compra! Compra! Compra tudo!'],
+    burroSobrou:['Loro burro? Loro PAPAGAIO! 🫠'],
+    burroZoa:  ['🐴! 🐴! Iô iô!'],
+    saiTuTopa: ['Loro sai! Loro abre!'],
+    fimWin:    ['Campeão! Biscoito duplo! 🏆'],
+    fimLose:   ['Loro chora… mas volta!'],
     reply:     ['Currupaco! 😂', 'Loro ouviu isso!']
   },
   caramelo: {
     hi:        ['Au! 🦴', 'Abana o rabo e joga'],
+    pensa:     ['*fareja as pedras*'],
     pass:      ['Auuu… passo 🐾', 'Cadê o osso… digo, a pedra?'],
+    forced:    ['Au! A graúda é minha!'],
     dbl:       ['Au au! Carroça!'],
+    lock:      ['*senta na ponta* Minha.'],
+    oneLeft:   ['*rabo abanando* falta uma!'],
+    oneLeftAdv:['Au au au! Uma pedra ali!'],
     bateu:     ['AU AU AU! 🎉🐾', 'Quem é o bom garoto? EU!'],
+    bateuCarroca:['AU! Carroça no final! Bom garoto!'],
+    bateuLalo: ['Dois lados! Au au! Dois!'],
+    bateuCruzada:['AUUUUU! CRUZADA! 🐾🐾'],
+    advEspecial:['*esconde embaixo da mesa*'],
     bateuParc: ['Lambida no parceiro! 🐾'],
     bateuAdv:  ['*deita e chora* 🥺'],
+    trancou:   ['*enterra a última pedra* Trancou.'],
+    trancaWin: ['Levinho! Bom garoto! 🐾'],
+    trancaLose:['*devolve o osso, triste*'],
     waitLong:  ['*olhar de cachorro esperando*'],
+    capote:    ['Au au! Capote! Cinco bifes!'],
+    capoteMedo:['*ganido* capote não…'],
+    buyMuito:  ['*fareja o dorme inteiro*'],
+    burroSobrou:['Au?… eu sou cachorro, não burro 🫠'],
+    burroZoa:  ['Au au 🐴! (isso foi uma risada)'],
+    saiTuTopa: ['Au! Eu saio! *rabo a mil*'],
+    fimWin:    ['MELHOR DIA! 🏆🦴'],
+    fimLose:   ['*focinho baixo* amanhã eu ganho'],
     reply:     ['Au? 😂', '*inclina a cabeça*']
   },
   neno: {
     hi:        ['Fone no talo, bora! 🎧', 'GG só no final, calma'],
+    pensa:     ['Carregando jogada… 🎧'],
     pass:      ['Passo… lag na mão', 'Skip 😩'],
+    forced:    ['First blood: abro eu'],
     dbl:       ['Carroça, gg'],
+    lock:      ['Ponta lockada 🔒'],
+    oneLeft:   ['1 HP… digo, 1 pedra'],
+    oneLeftAdv:['Mano, ele tá de UMA! Foca ele!'],
     bateu:     ['BATI! EZ 🎉', 'Clutch demais 🎧'],
+    bateuCarroca:['Carroça no last hit!'],
+    bateuLalo: ['Lá-e-lô! Double kill!'],
+    bateuCruzada:['CRUZADA! PENTAKILL! 🎧🔥'],
+    advEspecial:['Aí é smurf, não tem como'],
     bateuParc: ['Carregou, monstro!'],
     bateuAdv:  ['Aí é hack…', 'Report nessa mesa'],
+    trancou:   ['Server fechado 🔒'],
+    trancaWin: ['Win por pontos, aceito'],
+    trancaLose:['Perdi no tiebreak, aff'],
     waitLong:  ['AFK? ⏳', 'Joga aí, mano'],
+    capote:    ['5x0? Isso é gg izi'],
+    capoteMedo:['Sem capote, sem tilt, foco'],
+    buyMuito:  ['Farmando pedra igual minério'],
+    burroSobrou:['Eu de burro? Nerfaram meu char 🫠'],
+    burroZoa:  ['🐴 skin nova desbloqueada kkk'],
+    saiTuTopa: ['Eu saio, confia no carry'],
+    fimWin:    ['VITÓRIA! GG WP 🏆'],
+    fimLose:   ['FF… próxima a gente vira'],
     reply:     ['kkkkk', 'sem tilt 😂']
   }
 };
 
+/* tempero por voz: abertura + fecho combinam com o corpo → centenas de variações */
+const FLAIR = {
+  zefa:    { ab: ['Ai ai', 'Minha nossa', 'Ora veja', 'Ih fio'],  fe: ['viu', 'meu bem', 'fio'] },
+  tiao:    { ab: ['Uai', 'Vixe', 'Arre', 'Ô trem'],               fe: ['sô', 'uai', 'cumpadre'] },
+  beto:    { ab: ['Rapaz', 'Ih', 'Olha'],                          fe: ['né', 'tranquilo'] },
+  nino:    { ab: ['Pois bem', 'Ora', 'Hmm'],                       fe: ['meu jovem', 'com licença'] },
+  rosinha: { ab: ['Gente', 'Aiii', 'Amores'],                      fe: ['viu?', 'amor', '💅'] },
+  neno:    { ab: ['Mano', 'Pô', 'Aí sim'],                         fe: ['kkk', 'mano'] },
+  generic: { ab: ['Eita', 'Olha só', 'Hmm'],                       fe: ['hein', 'viu'] }
+};
 /* motor de falas: anti-repetição + cooldown por assento */
+/* sorteio com memória: embaralha o baralho e só repete depois que TODAS saírem */
+const BAGS = new Map();
+function pickFresh(key, arr){
+  if (!arr || !arr.length) return null;
+  let bag = BAGS.get(key);
+  if (!bag || !bag.length || bag.src !== arr) {
+    const b = [...arr];
+    for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }
+    if (bag && bag.last != null && b.length > 1 && b[b.length - 1] === bag.last) [b[0], b[b.length - 1]] = [b[b.length - 1], b[0]];
+    bag = b; bag.src = arr; bag.last = null;
+    BAGS.set(key, bag);
+  }
+  const v = bag.pop();
+  bag.last = v;
+  return v;
+}
+
 const CHAT = (() => {
-  const lastSaid = {}, lastAt = {};
-  const PROB = { hi: .5, pass: .55, forced: .7, dbl: .25, lock: .6, oneLeft: .75,
-                 bateu: 1, bateuParc: .9, bateuAdv: .7, trancou: 1, pensa: .8,
-                 trancaWin: .9, trancaLose: .8, waitLong: 1, reply: 1 };
+  const lastAt = {};
+  const PROB = { hi: .5, pass: .55, forced: .7, dbl: .25, lock: .6, oneLeft: .75, oneLeftAdv: .4,
+                 bateu: 1, bateuCarroca: 1, bateuLalo: 1, bateuCruzada: 1, advEspecial: .65,
+                 bateuParc: .9, bateuAdv: .7, trancou: 1, pensa: .8,
+                 trancaWin: .9, trancaLose: .8, waitLong: 1, reply: 1,
+                 capote: .9, capoteMedo: .7, buyMuito: .6,
+                 burroSobrou: 1, burroZoa: .7, saiTuTopa: 1, fimWin: .85, fimLose: .75 };
+  function compose(avId, tx){
+    if (!tx) return tx;
+    const asterisco = tx.startsWith('*');                 // ações do caramelo ficam puras
+    if (avId === 'loro' && chance(.3) && !asterisco) {
+      const w = tx.replace(/[!….?]+$/, '').split(' ').pop();
+      if (w && w.length > 2) tx = tx.replace(/[!….?]*$/, '') + '! ' + w + '!';
+      return tx;
+    }
+    if (avId === 'caramelo' && chance(.22) && !asterisco) return 'Au! ' + tx;
+    const f = FLAIR[avId] || FLAIR.generic;
+    if (chance(.4) && !asterisco && !/^[A-ZÁÉÍ]{3,}/.test(tx)) tx = pickFresh('ab:' + avId, f.ab) + ', ' + tx[0].toLowerCase() + tx.slice(1);
+    if (chance(.3) && /[a-záéíóúãõç]$/.test(tx)) tx = tx + ', ' + pickFresh('fe:' + avId, f.fe);
+    return tx;
+  }
   function line(avId, ev){
     const pool = (FR[avId] && FR[avId][ev]) || FR.generic[ev];
     if (!pool || !pool.length) return null;
-    let tx = pick(pool), tries = 4;
-    while (tx === lastSaid[avId + ev] && tries--) tx = pick(pool);
-    lastSaid[avId + ev] = tx;
-    return tx;
+    return compose(avId, pickFresh(avId + ':' + ev, pool));
   }
   function maybe(seat, avId, ev){
     const p = PROB[ev] ?? .5;
@@ -1582,13 +1795,16 @@ const CHAT = (() => {
     lastAt[seat] = t;
     return line(avId, ev);
   }
-  return { maybe, line };
+  return { maybe, line, PROB };
 })();
 
+
 /* paleta de reações do jogador humano */
-const REACT_EMO = ['😂', '😮', '😤', '🔥', '🙏', '😭', '👏', '🤝'];
+const REACT_EMO = ['😂', '😮', '😤', '🔥', '🙌', '😭', '👏', '🤝', '🫣', '😴', '🍀', '💪', '🤌', '😱'];
 const REACT_FRA = ['Boa!', 'Golpe baixo!', 'Lascou! 😂', 'Vai logo, uai', 'Confia no parceiro',
-                   'Essa doeu…', 'Toma!', 'Que mão é essa'];
+                   'Essa doeu…', 'Toma!', 'Que mão é essa', 'Embaralhou mal 😤', 'Tô só observando 👀',
+                   'Hoje não!', 'Ó a pressão…', 'Café na mesa, foco no jogo ☕', 'Revanche já!',
+                   'Misericórdia 😱', 'Segura essa emoção'];
 
 /* ============================================================
    REDE — Firebase RTDB puro: fetch (REST) pra escrever,
@@ -2745,13 +2961,18 @@ function startLocal(cfg){
   view.cfg = cfg; view.phase = 'play';
   const n = cfg.n || 4;
   const used = new Set([myAv]);
-  const pref = n === 2 ? ['tiao'] : ['zefa', 'beto', 'tiao'];   // 1x1: um rival · 4: esq/parc/dir
-  const pool = AVATARS.map(a => a.id).filter(id => !pref.includes(id));
-  const avs = pref.map(id => {
-    if (!used.has(id)) { used.add(id); return id; }
-    const alt = pool.find(x => !used.has(x)) || 'nino';
-    used.add(alt); return alt;
-  });
+  // sorteio girando por sessão: as 8 personas revezam de verdade
+  const querN = n === 2 ? 1 : 3;
+  const todos = AVATARS.map(a => a.id);
+  const avs = [];
+  let guard = 24;
+  while (avs.length < querN && guard--) {
+    const id = pickFresh('mesa:avs', todos);
+    if (!used.has(id)) { used.add(id); avs.push(id); }
+  }
+  while (avs.length < querN) {                     // segurança: completa com o que sobrar
+    const id = todos.find(x => !used.has(x)); used.add(id); avs.push(id);
+  }
   view.seats = [{ name: myName || 'Você', av: myAv }];
   avs.forEach(av => view.seats.push({ name: botName(av), av, bot: true }));
   LOCAL.on = true;
@@ -2777,7 +2998,7 @@ function localDeal(){
     LOCAL.pick = false;
     setTimeout(() => showSaiBar(2, sel => {
       view.st.starter = sel; view.st.turn = sel;
-      if (sel === 2) showBubble(2, esc(pick(['Deixa comigo 😤', 'Sai eu então!', 'Fechou, parceiro'])), 1700);
+      if (sel === 2) showBubble(2, esc(CHAT.line(seatAv(2), 'saiTuTopa') || 'Deixa comigo 😤'), 1700);
       renderAll();
       setTimeout(localTick, sel === 2 ? 900 : 0);
     }), 700);
@@ -2840,8 +3061,11 @@ async function localTick(){
   await sleep(longT ? rnd(3400, 5800) : rnd(900, 2100));
   if (!LOCAL.on || view.st !== st || st.turn !== p) return;
   // burrinho: o robô compra na frente de todo mundo, uma por uma
+  let comprou = 0;
   while (st.buy && !CORE.legalMoves(st, p).length && st.dorme.length) {
     CORE.applyBuy(st, p);
+    comprou++;
+    if (comprou === 3) { const tx = CHAT.maybe(p, seatAv(p), 'buyMuito'); if (tx) showBubble(p, esc(tx)); }
     SND.deal(1); renderAll();
     await sleep(rnd(320, 520));
     if (!LOCAL.on || view.st !== st || st.turn !== p) return;
@@ -2866,8 +3090,19 @@ async function localTick(){
       SND.bat();
       const pos = (st.out || []).length;
       const med = ['🥇', '🥈', '🥉'][pos - 1] || '✔';
-      showBubble(p, esc(pick([`Bati! ${med}`, 'Tô fora! Se virem aí 😎', 'Primeiro a sair, uó!'])), 2400);
-    } else botChatterPost(p, st, mv);
+      showBubble(p, esc(`${med} ` + (CHAT.line(seatAv(p), 'bateu') || 'Bati!')), 2400);
+    } else {
+      botChatterPost(p, st, mv);
+      if (!st.finished && st.hands[p].length === 1 && chance(.4)) {
+        const rivais = [0, 1, 2, 3].filter(s2 => s2 !== p && s2 !== 0 &&
+          s2 < (st.n || 4) && (!st.buy || st.hands[s2].length) && (st.n === 2 ? false : s2 % 2 !== p % 2));
+        if (rivais.length) setTimeout(() => {
+          const s2 = pick(rivais);
+          const tx = CHAT.maybe(s2, seatAv(s2), 'oneLeftAdv');
+          if (tx) showBubble(s2, esc(tx));
+        }, 900);
+      }
+    }
   }
   await sleep(rnd(700, 1000));
   localTick();
@@ -2931,12 +3166,19 @@ async function localFinish(){
     (f.team === myT ? SND.bat : SND.slap)();
     if (f.team === myT) confetti(32);
     const bp = f.player;
-    if (bp !== 0) { const tx = CHAT.maybe(bp, seatAv(bp), 'bateu'); if (tx) showBubble(bp, esc(tx)); }
+    const evKind = { 'carroça': 'bateuCarroca', 'lá-e-lô': 'bateuLalo', 'cruzada': 'bateuCruzada' }[f.kind] || 'bateu';
+    if (bp !== 0) { const tx = CHAT.maybe(bp, seatAv(bp), evKind) || CHAT.maybe(bp, seatAv(bp), 'bateu');
+      if (tx) showBubble(bp, esc(tx)); }
     const nn = st.n || 4;
     const par = nn === 4 ? (bp + 2) % 4 : -1;
     if (par > 0) setTimeout(() => { const tx = CHAT.maybe(par, seatAv(par), 'bateuParc'); if (tx) showBubble(par, esc(tx)); }, 700);
     const opp = (nn === 4 ? [(bp + 1) % 4, (bp + 3) % 4] : [(bp + 1) % 2]).filter(x => x !== 0);
-    if (opp.length) setTimeout(() => { const s = pick(opp); const tx = CHAT.maybe(s, seatAv(s), 'bateuAdv'); if (tx) showBubble(s, esc(tx)); }, 1300);
+    if (opp.length) setTimeout(() => {
+      const s = pick(opp);
+      const ev2 = f.kind !== 'simples' ? 'advEspecial' : 'bateuAdv';
+      const tx = CHAT.maybe(s, seatAv(s), ev2);
+      if (tx) showBubble(s, esc(tx));
+    }, 1300);
   } else {
     SND.tranca();
     const nn = st.n || 4;
@@ -2945,6 +3187,13 @@ async function localFinish(){
   }
   vibrate(f.team === myT ? [40, 60, 40] : 60);
   renderAll();
+  if ((m.score[0] === 5 && m.score[1] === 0) || (m.score[1] === 5 && m.score[0] === 0)) {
+    const win = m.score[0] === 5 ? 0 : 1;
+    const zoador = [1, 2, 3].find(s2 => s2 % 2 === win) ?? 1;
+    const medroso = [1, 2, 3].find(s2 => s2 % 2 !== win);
+    setTimeout(() => { const tx = CHAT.maybe(zoador, seatAv(zoador), 'capote'); if (tx) showBubble(zoador, esc(tx)); }, 500);
+    if (medroso != null) setTimeout(() => { const tx = CHAT.maybe(medroso, seatAv(medroso), 'capoteMedo'); if (tx) showBubble(medroso, esc(tx)); }, 1300);
+  }
   await sleep(1800);
   if (!LOCAL.on) return;
   const over = m.score[0] >= m.target || m.score[1] >= m.target;
@@ -2979,7 +3228,7 @@ async function localFinishBurro(st, f, m){
   if (souEu) { SND.tranca(); vibrate(80); }
   else { SND.slap(); confetti(20); vibrate([30, 40]); }
   if (!souEu) setTimeout(() => {
-    const tx = pick(['Ihh, sobrou pra mim 🫠', 'Lá vem pedra extra…', 'Eita, virei alvo']);
+    const tx = CHAT.line(seatAv(f.burro), 'burroSobrou') || 'Ihh, sobrou pra mim 🫠';
     showBubble(f.burro, esc(tx), 2200);
   }, 400);
   renderAll();
@@ -3002,6 +3251,10 @@ function localMatchEnd(){
     const mine = b !== 0;
     bumpStats(mine);
     if (mine) { SND.win(); confetti(); } else SND.tranca();
+    [1, 2, 3].filter(s => s !== b).slice(0, 2).forEach((s, i) => setTimeout(() => {
+      const tx = CHAT.maybe(s, seatAv(s), 'burroZoa');
+      if (tx) showBubble(s, esc(tx), 2600);
+    }, 300 + i * 600));
     return showModal(
       `<h2>${b === 0 ? '🐴 Você é o BURRO!' : '🐴 ' + esc(seatName(b)) + ' é o BURRO!'}</h2>
        <p class="sub">${b === 0 ? 'a mão ia chegar a 8 pedras… acontece 🫠' : 'não aguentou o castigo — 8 pedras é demais'}</p>`,
@@ -3014,6 +3267,12 @@ function localMatchEnd(){
   const mine = winner === 0;
   bumpStats(mine);
   if (mine) { SND.win(); confetti(); } else SND.tranca();
+  const nnF = view.st ? (view.st.n || 4) : 4;
+  const botsF = nnF === 4 ? [1, 2, 3] : [1];
+  const feliz = botsF.find(s => s % 2 === winner);
+  const triste = botsF.find(s => s % 2 !== winner);
+  if (feliz != null) setTimeout(() => { const tx = CHAT.maybe(feliz, seatAv(feliz), 'fimWin'); if (tx) showBubble(feliz, esc(tx), 2600); }, 300);
+  if (triste != null) setTimeout(() => { const tx = CHAT.maybe(triste, seatAv(triste), 'fimLose'); if (tx) showBubble(triste, esc(tx), 2600); }, 900);
   showModal(
     `<h2>${mine ? ((LOCAL.m && view.st && view.st.n === 2) ? '🏆 Vitória!' : '🏆 Vitória da dupla!')
              : ((view.st && view.st.n === 2) ? seatName(1) + ' levou essa…' : 'Eles levaram essa…')}</h2>
@@ -3978,7 +4237,7 @@ function boot(){
     netErr('achou a mesa ' + h + ' — só falta teu nome');
   }
 
-  if (location.search.includes('debug')) window.__D = { view, CORE, NET, ON, LOCAL, startLocal, processG, applyTheme, applySkin, THEMES, SKINS, customize, SND, moveSeat, MODE_LIST, modeMenu, requestPause, doResume, spawnDrift, rerollProp: rerollAmbience, applySize, SIZES };
+  if (location.search.includes('debug')) window.__D = { view, CORE, NET, ON, LOCAL, startLocal, processG, applyTheme, applySkin, THEMES, SKINS, customize, SND, moveSeat, MODE_LIST, modeMenu, requestPause, doResume, spawnDrift, rerollProp: rerollAmbience, applySize, SIZES, CHAT, pickFresh, FR };
 }
 boot();
 </script>
