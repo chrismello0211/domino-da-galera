@@ -189,7 +189,7 @@ input{font-family:inherit;}
 .teambox{display:flex;align-items:center;gap:7px;min-width:0;}
 .tcol{display:flex;flex-direction:column;line-height:1.05;min-width:0;}
 .tname{font-family:'Lilita One','Arial Rounded MT Bold','Trebuchet MS',sans-serif;font-size:14px;letter-spacing:1px;opacity:.95;}
-.tpair{font-size:9.5px;font-weight:700;color:#cbbb97;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;}
+.tpair{font-size:9.5px;font-weight:700;color:#cbbb97;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:108px;}
 .score{
   font-family:'Patrick Hand','Segoe Print','Comic Sans MS',sans-serif;font-size:27px;min-width:42px;text-align:center;
   background:rgba(0,0,0,.4);border-radius:10px;padding:0 10px;line-height:1.35;
@@ -363,7 +363,7 @@ input{font-family:inherit;}
 #hand{flex:1;display:flex;gap:8px;justify-content:center;flex-wrap:nowrap;overflow-x:auto;padding:8px 4px 2px;}
 .ht{
   position:relative;flex:0 0 auto;display:flex;flex-direction:column;
-  width:clamp(40px,12vw,58px);aspect-ratio:1/2;
+  width:calc(clamp(40px,12vw,58px) * var(--tileK,1));aspect-ratio:1/2;
   background:linear-gradient(160deg,var(--stone1) 0%, var(--stone2) 55%, var(--stone3) 100%);
   border-radius:8px;
   box-shadow:0 4px 8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.7);
@@ -567,7 +567,7 @@ input{font-family:inherit;}
   #pairUs,#pairThem{display:none;}
   #roundInfo{font-size:10.5px;}
   #handbar{min-height:88px;padding:6px 8px calc(8px + env(safe-area-inset-bottom));}
-  .ht{width:clamp(34px,9.5vh,46px);}
+
   #meCol{width:52px;gap:2px;}
   #meAv{width:36px;height:36px;}
   #meName{font-size:9.5px;}
@@ -577,6 +577,35 @@ input{font-family:inherit;}
   .mback{width:7px;height:13px;}
   #dorme .mback{width:10px;height:19px;}
   #propSlot{display:none;}
+  /* ===== deitado NATIVO: mão vira coluna na direita, mesa fica com o resto ===== */
+  #game{display:grid;grid-template-columns:1fr 118px;grid-template-rows:auto 1fr;
+        grid-template-areas:"top top" "board rail";}
+  #topbar{grid-area:top;}
+  #board{grid-area:board;}
+  #handbar{grid-area:rail;min-height:0;flex-direction:column;justify-content:flex-start;gap:6px;
+    padding:8px 6px calc(8px + env(safe-area-inset-bottom)) 6px;
+    box-shadow:-4px 0 14px rgba(0,0,0,.5), inset 3px 0 0 rgba(255,255,255,.07);}
+  #handbar.myturn{box-shadow:-4px 0 14px rgba(0,0,0,.5), inset 3px 0 0 var(--amber);}
+  #meCol{flex-direction:column;width:auto;gap:3px;}
+  #hand{flex:1;display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:min-content;
+    gap:6px 4px;justify-items:center;align-content:start;overflow-y:auto;overflow-x:hidden;padding:2px 0;}
+  .ht{width:calc(clamp(33px,10vh,44px) * var(--tileK,1));}
+  #turnChip{top:auto;bottom:10px;left:auto;right:calc(100% + 12px);transform:none;white-space:nowrap;}
+  #saiBar{left:auto;right:calc(100% + 12px);bottom:8px;top:auto;transform:none;
+    width:min(56vw,320px);padding:7px 10px;}
+  #saiBar .sq{font-size:11.5px;margin-bottom:6px;}
+  #saiBar button{padding:7px 8px;font-size:12px;}
+  #meAv .bubble{left:auto;right:calc(100% + 8px);top:50%;bottom:auto;transform:translateY(-50%);animation:bubInSide .22s;}
+  #meAv .bubble:after{left:100%;right:auto;bottom:auto;top:50%;transform:translateY(-50%);
+    border-left-color:var(--chalk);border-top-color:transparent;border-bottom-color:transparent;}
+}
+@keyframes bubInSide{from{transform:translate(8%,-50%) scale(.7);opacity:0;}}
+
+/* telas largas: moldura de app no centro (desktop/tablet deitado) */
+@media (min-width:720px) and (min-height:560px){
+  body{background:radial-gradient(120% 100% at 50% 0%, #123326, #06120c 75%);}
+  .screen{width:560px;max-width:560px;left:50%;right:auto;transform:translateX(-50%);
+    box-shadow:0 0 90px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.07);}
 }
 
 /* seletor de mesa (temas) */
@@ -597,6 +626,10 @@ input{font-family:inherit;}
   border:2px solid rgba(255,255,255,.14);background:rgba(0,0,0,.22);cursor:pointer;min-width:56px;}
 .skinchip.on{border-color:var(--amber);box-shadow:0 0 0 2px rgba(242,169,59,.35);}
 .skinchip .sn{font-size:10px;font-weight:800;color:var(--cream);}
+.szmini{display:block;border-radius:5px;background:linear-gradient(160deg,var(--stone1),var(--stone3));
+  box-shadow:0 2px 5px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.6);position:relative;}
+.szmini::after{content:'';position:absolute;left:16%;right:16%;top:50%;height:2px;transform:translateY(-50%);
+  background:var(--stoneline);border-radius:2px;}
 .seclab{margin:14px 0 2px;font-family:'Lilita One','Arial Rounded MT Bold','Trebuchet MS',sans-serif;
   font-size:15px;letter-spacing:.6px;color:var(--amber2);text-align:center;}
 
@@ -605,9 +638,9 @@ input{font-family:inherit;}
   animation:confFall linear forwards;pointer-events:none;}
 @keyframes confFall{to{transform:translateY(108dvh) rotate(720deg);}}
 
-@media (max-height:600px){
+@media (max-height:600px) and (orientation:portrait){
   #handbar{min-height:104px;}
-  .ht{width:clamp(36px,10.5vw,50px);}
+  .ht{width:calc(clamp(36px,10.5vw,50px) * var(--tileK,1));}
 }
 @media (prefers-reduced-motion: reduce){
   *{animation:none !important;transition:none !important;}
@@ -1707,7 +1740,7 @@ function rulesHTML(cfg){
     <p>Na sua vez, encaixe uma pedra numa das pontas. <b>Sem jogada? Passa</b> — dois toques na mesa (aqui ninguém compra).</p>
     <p><b>Bateu:</b> <b>simples +1</b> · <b>carroça +2</b> · <b>lá-e-lô +3</b> (serve nas duas pontas) · <b>cruzada +4</b> (carroça que serve nas duas).</p>
     <p><b>Tranca:</b> ${n === 2 ? 'quem tiver <b>menos pontos na mão</b> leva <b>+1</b>' : 'a dupla com <b>menos pontos na mão</b> leva <b>+1</b>'}. Empate: ninguém pontua.</p>
-    ${n === 4 ? '<p>Quando a dupla vence a mão, <b>depois das pedras novas</b> ela escolhe quem abre — o famoso <b>"sai tu ou saio eu?"</b> 😏</p>' : ''}
+    ${n === 4 ? '<p>Quando a dupla vence a mão — <b>batida ou tranca</b> — depois das pedras novas ela escolhe quem abre — o famoso <b>"sai tu ou saio eu?"</b> 😏</p>' : ''}
     <p>Vence a partida quem fizer <b>${(cfg && cfg.target) || 6} pontos</b> primeiro.</p>
   </div>`;
 }
@@ -1950,7 +1983,7 @@ function renderBoard(showSlots){
   const a = boardArea();
   const pad = 0.5;
   const bw = (maxX - minX + pad * 2) * U, bh = (maxY - minY + pad * 2) * U;
-  const s = Math.min(a.w / bw, a.h / bh, 1.3);
+  const s = Math.min(a.w / bw, a.h / bh, 1.3 * (window.__TILEK || 1));
   const cx = (minX + maxX) / 2 * U, cy = (minY + maxY) / 2 * U;
   const offY = a.cy - a.rh / 2;
   chain.style.transform = `translate(${-cx * s}px, ${(-cy * s) + offY}px) scale(${s})`;
@@ -2083,7 +2116,14 @@ function startDrag(ev, el, tile, can, myTurn){
     if (!drag.mode) {
       if (Math.hypot(dx, dy) < 12) return;
       drag.moved = true; suppressClick = true;
-      if (dy < -16 && Math.abs(dy) > Math.abs(dx)) {
+      // jogar = o dedo SAIU do rodapé (pra cima no retrato, pro lado no deitado);
+      // organizar = seguiu dentro dele
+      const hb = $('#handbar').getBoundingClientRect();
+      const barraDeitada = hb.width > hb.height;          // retrato: rodapé largo
+      const fora = e.clientY < hb.top - 6 || e.clientX < hb.left - 6 ||
+                   e.clientX > hb.right + 6 ||
+                   (barraDeitada && dy < -16 && Math.abs(dy) > Math.abs(dx));
+      if (fora) {
         if (!myTurn || !can) {
           drag.mode = 'deny';
           el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 320);
@@ -2122,12 +2162,31 @@ function startDrag(ev, el, tile, can, myTurn){
       drag.hot = hot ? hot.dataset.end : null;
     } else if (drag.mode === 'sort') {
       moveClone(e);
+      // saiu do rodapé com a pedra? então é jogada (retrato: pra cima; deitado: pro lado)
+      const hb2 = $('#handbar').getBoundingClientRect();
+      const saiu = e.clientY < hb2.top - 6 || e.clientX < hb2.left - 6 || e.clientX > hb2.right + 6;
+      if (saiu && myTurn && can) {
+        drag.mode = 'play';
+        selected = tile.id;
+        renderBoard(true);
+        SND.tap();
+        return;
+      }
       if (!el.parentNode) return;
       const sibs = [...el.parentNode.children].filter(x => x !== el);
-      let target = null;
+      // funciona em fila (retrato) e em grade (deitado): acha o vizinho mais perto
+      let alvo = null, ar = null, best = 1e9;
       for (const s of sibs) {
         const r = s.getBoundingClientRect();
-        if (e.clientX < r.left + r.width / 2) { target = s; break; }
+        const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
+        if (d < best) { best = d; alvo = s; ar = r; }
+      }
+      let target = null;
+      if (alvo) {
+        const antes = e.clientY < ar.top + ar.height * .38 ? true
+                    : e.clientY > ar.top + ar.height * .62 ? false
+                    : e.clientX < ar.left + ar.width / 2;
+        target = antes ? alvo : alvo.nextSibling;
       }
       if (target !== el.nextSibling) {
         el.parentNode.insertBefore(el, target);
@@ -2334,6 +2393,22 @@ function applySkin(s, save){
 }
 const initialSkin = () => SKINS.find(x => x.id === store.get('dom_skin')) || SKINS[0];
 
+/* tamanho das pedras (acessibilidade) */
+const SIZES = [
+  { id: 'p', n: 'Pequenas', k: .85 },
+  { id: 'm', n: 'Médias',   k: 1 },
+  { id: 'g', n: 'Grandes',  k: 1.22 }
+];
+let curSize = SIZES[1];
+function applySize(sz, save){
+  curSize = sz;
+  window.__TILEK = sz.k;
+  document.documentElement.style.setProperty('--tileK', sz.k);
+  if (save) store.set('dom_size', sz.id);
+  if (view.st && !$('#game').classList.contains('hidden')) { renderBoard(!!selected); renderHand(); }
+}
+const initialSize = () => SIZES.find(x => x.id === store.get('dom_size')) || SIZES[1];
+
 /* objeto no canto da mesa, um por tema (nada de álcool — café e suco 😄) */
 const PROPS = {
   boteco: [
@@ -2488,7 +2563,11 @@ function customize(){
   }).join('');
   const m = showModal(`<h2>Personalizar</h2>
     <div class="seclab">Mesa</div><div class="themes">${cards}</div>
-    <div class="seclab">Pedras</div><div class="skinrow">${chips}</div>`,
+    <div class="seclab">Pedras</div><div class="skinrow">${chips}</div>
+    <div class="seclab">Tamanho das pedras</div><div class="skinrow">${SIZES.map(s => `
+      <div class="skinchip sizechip ${s.id === curSize.id ? 'on' : ''}" data-sz="${s.id}">
+        <span class="szmini" style="width:${Math.round(19 * s.k)}px;height:${Math.round(38 * s.k)}px"></span>
+        <span class="sn">${s.n}</span></div>`).join('')}</div>`,
     [
       { label: 'Seguir a mesa do dia', ghost: true, fn: () => { store.del('dom_theme'); applyTheme(themeOfDay()); closeModal(); toastSafe('Agora a mesa muda sozinha, todo dia 🎲'); } },
       { label: 'Fechar', fn: closeModal }
@@ -2496,8 +2575,11 @@ function customize(){
   m.querySelectorAll('.themecard').forEach(c => c.onclick = () => {
     SND.tap(); applyTheme(THEMES.find(x => x.id === c.dataset.th), true); customize();
   });
-  m.querySelectorAll('.skinchip').forEach(c => c.onclick = () => {
+  m.querySelectorAll('.skinchip:not(.sizechip)').forEach(c => c.onclick = () => {
     SND.tap(); applySkin(SKINS.find(x => x.id === c.dataset.sk), true); customize();
+  });
+  m.querySelectorAll('.sizechip').forEach(c => c.onclick = () => {
+    SND.tap(); applySize(SIZES.find(x => x.id === c.dataset.sz), true); customize();
   });
 }
 // toast só existe dentro do jogo; no menu, usa a linha de status
@@ -2616,6 +2698,7 @@ function modeMenu(cb){
 }
 
 function startLocal(cfg){
+  hideSaiBar(); LOCAL.pick = false;
   view.online = false; view.mySeat = 0; view.hostSeat = 0;
   view.cfg = cfg; view.phase = 'play';
   const n = cfg.n || 4;
@@ -2792,6 +2875,7 @@ function hideSaiBar(){
   window.__PICKME = false;
   const el = $('#saiBar');
   if (el) el.classList.add('hidden');
+  if (view.st && !$('#game').classList.contains('hidden')) renderHand();   // reacende as pedras
 }
 
 async function localFinish(){
@@ -2826,8 +2910,8 @@ async function localFinish(){
   let extra = '', btns;
   if (over) {
     btns = [{ label: 'Ver resultado', fn: () => { closeModal(); localMatchEnd(); } }];
-  } else if (f.type === 'batida' && nn === 4 && f.team === 0) {
-    // nossa dupla bateu: a escolha vem DEPOIS das pedras novas, olhando a mão
+  } else if ((f.type === 'batida' || f.type === 'tranca') && nn === 4 && f.team === 0) {
+    // nossa dupla venceu (batida OU tranca): a escolha vem DEPOIS das pedras novas
     LOCAL.pick = true;
     btns = [{ label: 'Próxima mão', fn: () => { closeModal(); localDeal(); } }];
   } else {
@@ -2899,6 +2983,7 @@ function localMatchEnd(){
 }
 
 function leaveLocal(){
+  hideSaiBar(); LOCAL.pick = false;
   LOCAL.on = false;
   clearTimeout(LOCAL.idle);
   statsLine();
@@ -3394,12 +3479,19 @@ async function dealOnline(freshMatch){
   if (!freshMatch && base && base.st) {
     const pst = CORE.unpack(base.st);
     const f = pst.finished;
-    if (f && f.type === 'batida' && (pst.n || 4) === 4) {
-      const bt = f.player, pr = (bt + 2) % 4;
+    if (f && f.team != null && (pst.n || 4) === 4 &&
+        (f.type === 'batida' || f.type === 'tranca')) {
       const isBot = s => { const pl = (room.players || {})[s]; return pl && pl.bot; };
-      if (!isBot(bt)) pickSeat = bt;
-      else if (!isBot(pr)) pickSeat = pr;
-      else if (chance(.3)) { st.starter = pr; st.turn = pr; }   // dupla toda robô resolve sozinha
+      if (f.type === 'batida') {
+        const bt = f.player, pr = (bt + 2) % 4;
+        if (!isBot(bt)) pickSeat = bt;
+        else if (!isBot(pr)) pickSeat = pr;
+        else if (chance(.3)) { st.starter = pr; st.turn = pr; }   // dupla toda robô resolve sozinha
+      } else {
+        const a = f.team, b2 = f.team + 2;                        // tranca: humano da dupla decide
+        if (!isBot(a)) pickSeat = a;
+        else if (!isBot(b2)) pickSeat = b2;
+      }
     }
   }
   const seq = (base ? base.seq : 0) + 1;
@@ -3742,6 +3834,7 @@ function boot(){
   applyTheme(initialTheme());
   applySkin(initialSkin());
   hintsOn = store.get('dom_hints') !== '0';
+  applySize(initialSize(), false);
   // pedras decorativas do menu
   const mt = $('#menuTiles');
   [[6, 6], [2, 5], [4, 1]].forEach(([a, b]) => {
@@ -3843,7 +3936,7 @@ function boot(){
     netErr('achou a mesa ' + h + ' — só falta teu nome');
   }
 
-  if (location.search.includes('debug')) window.__D = { view, CORE, NET, ON, LOCAL, startLocal, processG, applyTheme, applySkin, THEMES, SKINS, customize, SND, moveSeat, MODE_LIST, modeMenu, requestPause, doResume, spawnDrift, rerollProp: rerollAmbience };
+  if (location.search.includes('debug')) window.__D = { view, CORE, NET, ON, LOCAL, startLocal, processG, applyTheme, applySkin, THEMES, SKINS, customize, SND, moveSeat, MODE_LIST, modeMenu, requestPause, doResume, spawnDrift, rerollProp: rerollAmbience, applySize, SIZES };
 }
 boot();
 </script>
