@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c2a1e">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Dominó da Galera</title>
 <meta name="description" content="Dominó brasileiro em duplas, online com os amigos. Sem cadastro, sem anúncios — cria a mesa e manda o código no zap.">
 <meta property="og:title" content="Dominó da Galera 🁢">
@@ -613,8 +615,35 @@ input{font-family:inherit;}
 }
 @keyframes bubInSide{from{transform:translate(8%,-50%) scale(.7);opacity:0;}}
 
+/* ===== tablet DEITADO (toque, tela alta): mesa grande + trilho de pedras confortável ===== */
+@media (orientation:landscape) and (min-height:541px) and (pointer:coarse){
+  #game{display:grid;grid-template-columns:1fr clamp(156px,21vw,250px);grid-template-rows:auto 1fr;
+        grid-template-areas:"top top" "board rail";
+        padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);}
+  #topbar{grid-area:top;}
+  #board{grid-area:board;}
+  #propSlot{display:none;}
+  #handbar{grid-area:rail;min-height:0;flex-direction:column;justify-content:flex-start;gap:8px;
+    padding:12px 9px calc(12px + env(safe-area-inset-bottom)) 9px;
+    box-shadow:-5px 0 16px rgba(0,0,0,.5), inset 3px 0 0 rgba(255,255,255,.07);}
+  #handbar.myturn{box-shadow:-5px 0 16px rgba(0,0,0,.5), inset 3px 0 0 var(--amber);}
+  #meCol{flex-direction:column;width:auto;gap:5px;}
+  #hand{flex:1;display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:min-content;
+    gap:10px 7px;justify-items:center;align-content:start;overflow-y:auto;overflow-x:hidden;padding:3px 0;
+    -webkit-mask-image:linear-gradient(180deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);
+    mask-image:linear-gradient(180deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);}
+  #hand .ht:first-child{margin-left:0;}
+  #hand .ht:last-child{margin-right:0;}
+  .ht{width:calc(clamp(46px,7.4vh,66px) * var(--tileK,1));}
+  #turnChip{top:auto;bottom:12px;left:auto;right:calc(100% + 14px);transform:none;white-space:nowrap;}
+  #saiBar{left:auto;right:calc(100% + 14px);bottom:10px;top:auto;transform:none;width:min(44vw,360px);padding:9px 12px;}
+  #meAv .bubble{left:auto;right:calc(100% + 8px);top:50%;bottom:auto;transform:translateY(-50%);animation:bubInSide .22s;}
+  #meAv .bubble:after{left:100%;right:auto;bottom:auto;top:50%;transform:translateY(-50%);
+    border-left-color:var(--chalk);border-top-color:transparent;border-bottom-color:transparent;}
+}
+
 /* telas largas: moldura de app no centro (desktop/tablet deitado) */
-@media (min-width:720px) and (min-height:560px){
+@media (min-width:720px) and (min-height:560px) and (hover:hover) and (pointer:fine){
   body{background:radial-gradient(120% 100% at 50% 0%, #123326, #06120c 75%);}
   .screen{width:560px;max-width:560px;left:50%;right:auto;transform:translateX(-50%);
     box-shadow:0 0 90px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.07);}
@@ -787,6 +816,7 @@ input{font-family:inherit;}
     </div>
   </div>
   <div id="netStatus"></div>
+  <button id="btnInstall" class="ghostbtn hidden">📲 Instalar o app</button>
   <button id="btnTheme" class="ghostbtn">🎨 Personalizar</button>
   <div class="specs">sem cadastro · sem anúncios
     <span id="statsLine" class="hidden" style="display:block;margin-top:6px;color:var(--amber2)"></span>
@@ -2590,6 +2620,7 @@ function confetti(n){
     setTimeout(() => c.remove(), 4200);
   }
 }
+let DEFERRED_INSTALL = null;
 
 /* ============================================================
    JOGO LOCAL — você + 3 da casa, com ritmo de mesa de verdade
@@ -4294,6 +4325,44 @@ function boot(){
     $('#codeIn').focus();
   };
   $('#btnRules').onclick = () => { SND.tap(); showModal(rulesHTML(null), [{ label: 'Fechei', fn: closeModal }]); };
+  // ---- instalar como app (PWA) ----
+  const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const isiOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const btnInstall = $('#btnInstall');
+  if (btnInstall && !isStandalone()) btnInstall.classList.remove('hidden');   // mostra p/ iOS e Android
+  window.addEventListener('beforeinstallprompt', e => {                        // Android: guarda o convite nativo
+    e.preventDefault(); DEFERRED_INSTALL = e;
+    if (btnInstall && !isStandalone()) btnInstall.classList.remove('hidden');
+  });
+  window.addEventListener('appinstalled', () => {
+    DEFERRED_INSTALL = null;
+    if (btnInstall) btnInstall.classList.add('hidden');
+    toast('Instalado! 🎉 procure o ícone na tela inicial');
+  });
+  if (btnInstall) btnInstall.onclick = async () => {
+    SND.tap();
+    if (DEFERRED_INSTALL) {                                                     // Android: dispara o instalador nativo
+      DEFERRED_INSTALL.prompt();
+      const r = await DEFERRED_INSTALL.userChoice.catch(() => null);
+      DEFERRED_INSTALL = null;
+      if (r && r.outcome === 'accepted') btnInstall.classList.add('hidden');
+      return;
+    }
+    const passos = isiOS()
+      ? `<div class="rules">
+           <p>📲 <b>No iPhone/iPad (Safari):</b></p>
+           <p>1. Toque em <b>Compartilhar</b> (o quadradinho com a setinha ↑, embaixo).</p>
+           <p>2. Role e toque em <b>“Adicionar à Tela de Início”</b>.</p>
+           <p>Pronto — vai virar o app <b>Dominó da Galera</b>, sem a barra do navegador.</p>
+         </div>`
+      : `<div class="rules">
+           <p>📲 <b>No Android (Chrome):</b></p>
+           <p>1. Toque no menu <b>⋮</b> (três pontinhos, canto superior).</p>
+           <p>2. Escolha <b>“Instalar app”</b> (ou “Adicionar à tela inicial”).</p>
+           <p>Pronto — vai virar o app <b>Dominó da Galera</b>, em tela cheia.</p>
+         </div>`;
+    showModal('<h2>Instalar o app</h2>' + passos, [{ label: 'Entendi', fn: closeModal }]);
+  };
   $('#btnJoinGo').onclick = () => { SND.unlock(); SND.tap(); joinRoom($('#codeIn').value); };
   $('#codeIn').addEventListener('input', e => e.target.value = e.target.value.toUpperCase());
   $('#codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnJoinGo').click(); });
