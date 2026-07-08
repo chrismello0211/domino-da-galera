@@ -32,5 +32,11 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "orientation": "any",
+  "categories": [
+    "games",
+    "entertainment"
+  ],
+  "prefer_related_applications": false
 }
