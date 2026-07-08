@@ -451,20 +451,20 @@ input{font-family:inherit;}
 .mt .mid{position:absolute;top:50%;left:13%;right:13%;height:2.5px;background:var(--stoneline);transform:translateY(-50%);}
 
 /* sai tu ou saio eu (pós-pedras) */
-#saiBar{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);z-index:22;
+#saiBar, #passBar{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);z-index:22;
   width:min(92vw,380px);background:linear-gradient(180deg,#3a2d1c,#2a2014);
   border:2px solid rgba(242,169,59,.55);border-radius:16px;padding:10px 12px;
   box-shadow:0 12px 30px rgba(0,0,0,.55);text-align:center;
   animation:saiIn .3s cubic-bezier(.3,1.4,.5,1);}
 #handbar{position:relative;}
 @keyframes saiIn{from{transform:translate(-50%,14px) scale(.9);opacity:0;}}
-#saiBar .sq{display:block;color:var(--cream);font-size:13px;margin-bottom:8px;}
-#saiBar .sbtns{display:flex;gap:8px;justify-content:center;}
-#saiBar button{flex:1;max-width:160px;border:0;border-radius:12px;padding:9px 10px;
+#saiBar .sq, #passBar .sq{display:block;color:var(--cream);font-size:13px;margin-bottom:8px;}
+#saiBar .sbtns, #passBar .sbtns{display:flex;gap:8px;justify-content:center;}
+#saiBar button, #passBar button{flex:1;max-width:160px;border:0;border-radius:12px;padding:9px 10px;
   font-family:inherit;font-weight:900;font-size:13.5px;cursor:pointer;
   background:linear-gradient(180deg,#ffd98a,#f2a93b);color:#3a2405;
   box-shadow:0 3px 0 #b97a1c,0 6px 14px rgba(0,0,0,.4);}
-#saiBar button:active{transform:translateY(2px);box-shadow:0 1px 0 #b97a1c;}
+#saiBar button:active, #passBar button:active{transform:translateY(2px);box-shadow:0 1px 0 #b97a1c;}
 
 /* jogo do burro */
 #topbar.burro #scoreUs,#topbar.burro #scoreThem,
@@ -605,10 +605,10 @@ input{font-family:inherit;}
   #hand .ht:last-child{margin-right:0;}
   .ht{width:calc(clamp(33px,10vh,44px) * var(--tileK,1));}
   #turnChip{top:auto;bottom:10px;left:auto;right:calc(100% + 12px);transform:none;white-space:nowrap;}
-  #saiBar{left:auto;right:calc(100% + 12px);bottom:8px;top:auto;transform:none;
+  #saiBar, #passBar{left:auto;right:calc(100% + 12px);bottom:8px;top:auto;transform:none;
     width:min(56vw,320px);padding:7px 10px;}
-  #saiBar .sq{font-size:11.5px;margin-bottom:6px;}
-  #saiBar button{padding:7px 8px;font-size:12px;}
+  #saiBar .sq, #passBar .sq{font-size:11.5px;margin-bottom:6px;}
+  #saiBar button, #passBar button{padding:7px 8px;font-size:12px;}
   #meAv .bubble{left:auto;right:calc(100% + 8px);top:50%;bottom:auto;transform:translateY(-50%);animation:bubInSide .22s;}
   #meAv .bubble:after{left:100%;right:auto;bottom:auto;top:50%;transform:translateY(-50%);
     border-left-color:var(--chalk);border-top-color:transparent;border-bottom-color:transparent;}
@@ -636,7 +636,7 @@ input{font-family:inherit;}
   #hand .ht:last-child{margin-right:0;}
   .ht{width:calc(clamp(46px,7.4vh,66px) * var(--tileK,1));}
   #turnChip{top:auto;bottom:12px;left:auto;right:calc(100% + 14px);transform:none;white-space:nowrap;}
-  #saiBar{left:auto;right:calc(100% + 14px);bottom:10px;top:auto;transform:none;width:min(44vw,360px);padding:9px 12px;}
+  #saiBar, #passBar{left:auto;right:calc(100% + 14px);bottom:10px;top:auto;transform:none;width:min(44vw,360px);padding:9px 12px;}
   #meAv .bubble{left:auto;right:calc(100% + 8px);top:50%;bottom:auto;transform:translateY(-50%);animation:bubInSide .22s;}
   #meAv .bubble:after{left:100%;right:auto;bottom:auto;top:50%;transform:translateY(-50%);
     border-left-color:var(--chalk);border-top-color:transparent;border-bottom-color:transparent;}
@@ -885,6 +885,12 @@ input{font-family:inherit;}
       <div class="sbtns">
         <button id="saiEu">🫡 Eu saio</button>
         <button id="saiTu">👉 Sai <span id="saiNome"></span></button>
+      </div>
+    </div>
+    <div id="passBar" class="hidden">
+      <span class="sq">Você não tem pedra pra jogar 😕</span>
+      <div class="sbtns">
+        <button id="passGo">✋ Passar a vez</button>
       </div>
     </div>
     <div id="turnChip" class="hidden">SUA VEZ</div>
@@ -2926,12 +2932,15 @@ function localHumanBuy(){
   if (!CORE.legalMoves(st, 0).length && !st.dorme.length) {
     setTimeout(() => {
       if (!LOCAL.on || view.st !== st || st.turn !== 0 || st.finished) return;
-      SND.pass(); vibrate([30, 40, 30]);
-      showBubble(0, 'Comprei tudo e nada… passo ✋', 2000);
-      CORE.applyPass(st, 0);
-      renderAll();
-      setTimeout(localTick, 700);
-    }, 600);
+      showPassBar(() => {
+        if (!LOCAL.on || view.st !== st || st.turn !== 0 || st.finished) return;
+        SND.pass(); vibrate([30, 40, 30]);
+        showBubble(0, 'Comprei tudo e nada… passo ✋', 2000);
+        CORE.applyPass(st, 0);
+        renderAll();
+        setTimeout(localTick, 700);
+      });
+    }, 400);
   }
 }
 
@@ -3026,7 +3035,7 @@ function modeMenu(cb){
 }
 
 function startLocal(cfg){
-  hideSaiBar(); LOCAL.pick = false;
+  hideSaiBar(); hidePassBar(); LOCAL.pick = false;
   view.online = false; view.mySeat = 0; view.hostSeat = 0;
   view.cfg = cfg; view.phase = 'play';
   const n = cfg.n || 4;
@@ -3090,15 +3099,20 @@ async function localTick(){
         clearTimeout(LOCAL.idle);
         return;                                          // dorme pulsa, espera o toque
       }
-      busy = true; renderHand();
-      await sleep(1000);
-      if (!LOCAL.on || view.st !== st) return;
-      SND.pass(); vibrate([30, 40, 30]);
-      showBubble(0, 'Toc-toc… passo ✋', 2000);
-      CORE.applyPass(st, 0);
-      renderAll();
-      await sleep(750);
-      return localTick();
+      clearTimeout(LOCAL.idle);
+      busy = false; renderAll();
+      showPassBar(() => {
+        if (!LOCAL.on || view.st !== st || st.turn !== 0 || st.finished) return;
+        SND.pass(); vibrate([30, 40, 30]);
+        showBubble(0, 'Passo ✋', 1600);
+        CORE.applyPass(st, 0);
+        renderAll();
+        setTimeout(localTick, 700);
+      });
+      LOCAL.idle = setTimeout(() => {
+        if (LOCAL.on && view.st === st && st.turn === 0 && !st.finished) { SND.turn(); toast('Sua vez — é só passar!'); }
+      }, 15000);
+      return;
     }
     clearTimeout(LOCAL.idle);
     LOCAL.idle = setTimeout(() => {
@@ -3216,6 +3230,18 @@ function showSaiBar(parceiro, cb){
   $('#saiEu').onclick = () => { SND.tap(); const f = saiCb; hideSaiBar(); if (f) f(view.mySeat); };
   $('#saiTu').onclick = () => { SND.tap(); const f = saiCb; hideSaiBar(); if (f) f(parceiro); };
   renderHand();
+}
+let passCb = null;
+function showPassBar(cb){
+  passCb = cb;
+  const el = $('#passBar'); if (!el) return;
+  el.classList.remove('hidden');
+  $('#passGo').onclick = () => { SND.tap(); const f = passCb; hidePassBar(); if (f) f(); };
+  if (view.st && !$('#game').classList.contains('hidden')) renderHand();
+}
+function hidePassBar(){
+  passCb = null;
+  const el = $('#passBar'); if (el) el.classList.add('hidden');
 }
 function hideSaiBar(){
   saiCb = null;
@@ -3354,7 +3380,7 @@ function localMatchEnd(){
 }
 
 function leaveLocal(){
-  hideSaiBar(); LOCAL.pick = false;
+  hideSaiBar(); hidePassBar(); LOCAL.pick = false;
   LOCAL.on = false;
   clearTimeout(LOCAL.idle);
   statsLine();
@@ -3445,7 +3471,7 @@ const hostSeatOf = room => {
 
 function enterRoom(code){
   ON.code = code; ON.lastSeq = -1; ON.seen = new Set(); ON.joinedAt = now();
-  ON.finShown = -1; ON.endShown = false; ON.endReveal = false; clearTimeout(ON.endTimer); ON.botFor = -1; ON.celebFor = -1; ON.tmoFor = -1; ON.pauseAsk = 0; ON.pausedPrev = false; ON.pick = null; ON.pickFor = -1; hideSaiBar();
+  ON.finShown = -1; ON.endShown = false; ON.endReveal = false; clearTimeout(ON.endTimer); ON.botFor = -1; ON.celebFor = -1; ON.tmoFor = -1; ON.pauseAsk = 0; ON.pausedPrev = false; ON.pick = null; ON.pickFor = -1; hideSaiBar(); hidePassBar();
   view.online = true;
   onHumanPlay = onlineHumanPlay; onHumanBuy = onlineHumanBuy;
   onBotTake = seat => {
@@ -3623,12 +3649,13 @@ function processG(g, fromMe){
     if (!ON.pick) {
       const lm = CORE.legalMoves(view.st, view.mySeat);
       if (!lm.length) {
-        if (view.st.buy && view.st.dorme.length) armIdle();   // compra na mão; relógio segue valendo
-        else autoPassOnline(g.seq);
+        if (view.st.buy && view.st.dorme.length) { hidePassBar(); armIdle(); }   // burrinho: compra na mão
+        else { busy = false; renderHand(); armIdle(); showPassBar(() => doPassOnline(g.seq)); }
       }
-      else armIdle();
+      else { hidePassBar(); armIdle(); }
     }
   } else {
+    hidePassBar();
     ON.thinkSeat = view.st.turn;
     ON.think = setTimeout(() => showThink(ON.thinkSeat), 700);
   }
@@ -3700,13 +3727,11 @@ async function onlineHumanBuy(){
   writeG(st2, m2, { k: 'buy', s: view.mySeat });
 }
 
-async function autoPassOnline(seq){
-  busy = true; renderHand();
-  await sleep(1000);
+function doPassOnline(seq){
   const cur = ON.sub && ON.sub.get();
-  if (!cur || !cur.g || cur.g.seq !== seq) { busy = false; renderHand(); return; }
+  if (!cur || !cur.g || cur.g.seq !== seq) return;
   const st = view.st;
-  if (st.turn !== view.mySeat || st.finished) { busy = false; renderHand(); return; }
+  if (st.turn !== view.mySeat || st.finished) return;
   SND.pass(); vibrate([30, 40, 30]);
   const st2 = CORE.unpack(CORE.pack(st));
   CORE.applyPass(st2, view.mySeat);
