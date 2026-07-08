@@ -927,9 +927,10 @@ input{font-family:inherit;}
 /* ---------- configuração de rede ----------
    O dominó mora dentro do mesmo Realtime Database do Bolão,
    no galho /bolao/domino (as regras já liberam esse caminho).
-   Se um dia quiser separar, troque DB/ROOT aqui.            */
-const DB   = 'https://bolao-da-copa-8be20-default-rtdb.firebaseio.com';
-const ROOT = 'bolao/domino';
+   Projeto dedicado do dominó. Pra separar/mudar, troque DB aqui.
+   ROOT vazio = dados na raiz (/rooms/{code}), casando com as regras. */
+const DB   = 'https://domino-da-galera-default-rtdb.firebaseio.com';
+const ROOT = '';
 
 /* ---------- utilitários ---------- */
 const $  = s => document.querySelector(s);
@@ -1845,7 +1846,7 @@ const REACT_FRA = ['Boa!', 'Golpe baixo!', 'Lascou! 😂', 'Vai logo, uai', 'Con
    ============================================================ */
 /*NET-START*/
 const NET = (() => {
-  const url = p => `${DB}/${ROOT}/${p}.json`;
+  const url = p => `${DB}${ROOT ? '/' + ROOT : ''}/${p}.json`;
   async function req(method, p, data){
     const r = await fetch(url(p), {
       method,
@@ -4210,7 +4211,7 @@ async function leaveOnline(write){
 window.addEventListener('pagehide', () => {
   const seat = mySeatNow();
   if (!ON.code || seat < 0) return;
-  const base = `${DB}/${ROOT}/rooms/${ON.code}/players/${seat}.json`;
+  const base = `${DB}${ROOT ? '/' + ROOT : ''}/rooms/${ON.code}/players/${seat}.json`;
   try {
     if (view.phase === 'wait') fetch(base, { method: 'DELETE', keepalive: true });
     else fetch(base, { method: 'PATCH', body: JSON.stringify({ away: now() }), keepalive: true });
