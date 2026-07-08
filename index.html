@@ -2627,6 +2627,10 @@ function confetti(n){
   }
 }
 let DEFERRED_INSTALL = null;
+// tempo olhando a MESA antes de aparecer o resultado (fim de cada mão) — e sincronia da contagem online
+const SEE_BOARD_MS = 4500;
+const NEXT_CNT = 11;                                   // segundos de contagem até a próxima mão (online)
+const NEXT_DEAL_MS = SEE_BOARD_MS + NEXT_CNT * 1000;   // host distribui a próxima mão exatamente quando a contagem zera
 
 /* ============================================================
    JOGO LOCAL — você + 3 da casa, com ritmo de mesa de verdade
@@ -3291,7 +3295,7 @@ async function localFinish(){
     if (medroso != null) setTimeout(() => { const tx = CHAT.maybe(medroso, seatAv(medroso), 'capoteMedo'); if (tx) showBubble(medroso, esc(tx)); }, 1300);
   }
   const over = m.score[0] >= m.target || m.score[1] >= m.target;
-  await sleep(over ? 3400 : 1800);                 // fim de partida: deixa o povo ver a mesa
+  await sleep(SEE_BOARD_MS);                        // deixa o povo ver a mesa antes do resultado
   if (!LOCAL.on) return;
   const nn = st.n || 4;
   let extra = '', btns;
@@ -3328,7 +3332,7 @@ async function localFinishBurro(st, f, m){
     showBubble(f.burro, esc(tx), 2200);
   }, 400);
   renderAll();
-  await sleep(1800);
+  await sleep(SEE_BOARD_MS);
   if (!LOCAL.on) return;
   if (m.pen[f.burro] >= 4) {
     let corpo;
@@ -3782,7 +3786,7 @@ function hostDuties(room){
   if (st && st.finished) {
     if (ON.celebFor !== g.seq) { ON.celebFor = g.seq; botsCelebrate(st); }
     if (room.phase !== 'end' && !ON.dealTimer) {
-      ON.dealTimer = setTimeout(() => { ON.dealTimer = null; dealOnline(false); }, 12000);
+      ON.dealTimer = setTimeout(() => { ON.dealTimer = null; dealOnline(false); }, NEXT_DEAL_MS);
     }
     return;
   }
@@ -3955,7 +3959,7 @@ async function finishOnline(g){
   else SND.tranca();
   vibrate(f.team === myT ? [40, 60, 40] : 60);
   renderAll();
-  await sleep(1800);
+  await sleep(SEE_BOARD_MS);
   const cur = ON.sub && ON.sub.get();
   if (!cur || !ON.code) return;
   if (cur.phase === 'end') return matchEndOnline();
@@ -3968,7 +3972,7 @@ async function finishOnline(g){
   try { corpo = revealHTML(); }
   catch (e) { corpo = `<h2>Fim da mão</h2><p class="sub">placar atualizado</p>`; }
   const m = showModal(corpo + `<p class="sub" id="nextIn"></p>`, btns);
-  let s = 12;
+  let s = NEXT_CNT;
   const iv = setInterval(() => {
     const el = document.getElementById('nextIn');
     if (!el) return clearInterval(iv);
@@ -3977,7 +3981,7 @@ async function finishOnline(g){
     if (s <= 0) clearInterval(iv);
   }, 1000);
   const el0 = document.getElementById('nextIn');
-  if (el0) el0.textContent = 'a próxima mão vem em 12s ⏳';
+  if (el0) el0.textContent = `a próxima mão vem em ${NEXT_CNT}s ⏳`;
 }
 
 async function finishBurroOnline(g, st, f){
@@ -3985,7 +3989,7 @@ async function finishBurroOnline(g, st, f){
   if (souEu) { SND.tranca(); vibrate(80); }
   else { SND.slap(); confetti(20); }
   renderAll();
-  await sleep(1800);
+  await sleep(SEE_BOARD_MS);
   const cur = ON.sub && ON.sub.get();
   if (!cur || !ON.code) return;
   if (cur.phase === 'end') return matchEndOnline();
@@ -3996,7 +4000,7 @@ async function finishBurroOnline(g, st, f){
   showModal(corpo + `<p class="sub" id="nextIn"></p>`, host
     ? [{ label: 'Próxima rodada', fn: () => { closeModal(); clearTimeout(ON.dealTimer); ON.dealTimer = null; dealOnline(false); } }]
     : [{ label: 'Beleza', ghost: true, fn: closeModal }]);
-  let s = 12;
+  let s = NEXT_CNT;
   const iv = setInterval(() => {
     const el = document.getElementById('nextIn');
     if (!el) return clearInterval(iv);
@@ -4005,7 +4009,7 @@ async function finishBurroOnline(g, st, f){
     if (s <= 0) clearInterval(iv);
   }, 1000);
   const el0 = document.getElementById('nextIn');
-  if (el0) el0.textContent = 'a próxima rodada vem em 12s ⏳';
+  if (el0) el0.textContent = `a próxima rodada vem em ${NEXT_CNT}s ⏳`;
 }
 
 function matchEndOnline(){
