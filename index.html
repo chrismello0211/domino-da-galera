@@ -787,10 +787,10 @@ input{font-family:inherit;}
     </div>
   </div>
   <div id="netStatus"></div>
-  <button id="btnRules" class="ghostbtn">Como funciona</button>
   <button id="btnTheme" class="ghostbtn">🎨 Personalizar</button>
   <div class="specs">sem cadastro · sem anúncios
-    <span id="statsLine" class="hidden" style="display:block;margin-top:6px;color:var(--amber2)"></span></div>
+    <span id="statsLine" class="hidden" style="display:block;margin-top:6px;color:var(--amber2)"></span>
+    <span class="verline" style="display:block;margin-top:4px;font-size:10px;opacity:.4">v2026.07.08</span></div>
 </div>
 
 <!-- ============ SALA DE ESPERA ============ -->
@@ -4297,7 +4297,6 @@ function boot(){
   $('#btnJoinGo').onclick = () => { SND.unlock(); SND.tap(); joinRoom($('#codeIn').value); };
   $('#codeIn').addEventListener('input', e => e.target.value = e.target.value.toUpperCase());
   $('#codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnJoinGo').click(); });
-  $('#btnRules').onclick = () => showModal(rulesHTML({ per: 6 }), [{ label: 'Fechei', fn: closeModal }]);
 
   // sala de espera
   $('#btnLeaveWait').onclick = () => {
