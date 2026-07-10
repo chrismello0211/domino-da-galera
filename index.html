@@ -395,6 +395,7 @@ input{font-family:inherit;}
 /* paleta de reações */
 #reactPal{
   position:absolute;bottom:calc(100% + 10px);left:6px;z-index:60;
+  max-height:min(70dvh,480px);overflow-y:auto;overscroll-behavior:contain;
   background:linear-gradient(180deg,#1d3b2d,#0f271c);border:1.5px solid rgba(255,255,255,.18);
   border-radius:18px;padding:10px;box-shadow:0 10px 30px rgba(0,0,0,.55);
   display:flex;flex-direction:column;gap:8px;animation:palIn .18s cubic-bezier(.3,1.4,.5,1);
@@ -605,6 +606,8 @@ input{font-family:inherit;}
   #hand .ht:last-child{margin-right:0;}
   .ht{width:calc(clamp(33px,10vh,44px) * var(--tileK,1));}
   #turnChip{top:auto;bottom:10px;left:auto;right:calc(100% + 12px);transform:none;white-space:nowrap;}
+  #reactPal{left:auto;right:calc(100% + 10px);bottom:6px;top:auto;
+    width:min(340px,calc(100vw - 200px));max-height:calc(100dvh - 16px);}
   #saiBar, #passBar{left:auto;right:calc(100% + 12px);bottom:8px;top:auto;transform:none;
     width:min(56vw,320px);padding:7px 10px;}
   #saiBar .sq, #passBar .sq{font-size:11.5px;margin-bottom:6px;}
@@ -636,6 +639,8 @@ input{font-family:inherit;}
   #hand .ht:last-child{margin-right:0;}
   .ht{width:calc(clamp(46px,7.4vh,66px) * var(--tileK,1));}
   #turnChip{top:auto;bottom:12px;left:auto;right:calc(100% + 14px);transform:none;white-space:nowrap;}
+  #reactPal{left:auto;right:calc(100% + 12px);bottom:8px;top:auto;
+    width:min(380px,calc(100vw - 310px));max-height:calc(100dvh - 20px);}
   #saiBar, #passBar{left:auto;right:calc(100% + 14px);bottom:10px;top:auto;transform:none;width:min(44vw,360px);padding:9px 12px;}
   #meAv .bubble{left:auto;right:calc(100% + 8px);top:50%;bottom:auto;transform:translateY(-50%);animation:bubInSide .22s;}
   #meAv .bubble:after{left:100%;right:auto;bottom:auto;top:50%;transform:translateY(-50%);
@@ -820,7 +825,7 @@ input{font-family:inherit;}
   <button id="btnTheme" class="ghostbtn">🎨 Personalizar</button>
   <div class="specs">sem cadastro · sem anúncios
     <span id="statsLine" class="hidden" style="display:block;margin-top:6px;color:var(--amber2)"></span>
-    <span class="verline" style="display:block;margin-top:4px;font-size:10px;opacity:.4">v2026.07.08</span></div>
+    <span class="verline" style="display:block;margin-top:4px;font-size:10px;opacity:.4">v2026.07.10</span></div>
 </div>
 
 <!-- ============ SALA DE ESPERA ============ -->
@@ -1126,10 +1131,25 @@ const CORE = (() => {
     }
     if (st.passes >= (st.n || 4)) {
       const sums = st.hands.map(handSum);
-      const tA = st.n === 2 ? sums[0] : sums[0] + sums[2];
-      const tB = st.n === 2 ? sums[1] : sums[1] + sums[3];
-      const winner = tA < tB ? 0 : (tB < tA ? 1 : null);
+      let winner, low = null;
+      if (st.n === 4 && st.per === 6 && !st.buy && !st.burro) {
+        // 6 pedras + dorme: MENOR MÃO INDIVIDUAL vence e leva o ponto pra dupla
+        const lo = Math.min(...sums);
+        const who = sums.map((s, i) => s === lo ? i : -1).filter(i => i >= 0);
+        const teams = new Set(who.map(p => p % 2));
+        if (teams.size === 1) { winner = who[0] % 2; low = who[0]; }
+        else {
+          // menor mão empatada entre as duplas: desempata pela soma; persistindo, ninguém pontua
+          const tA = sums[0] + sums[2], tB = sums[1] + sums[3];
+          winner = tA < tB ? 0 : (tB < tA ? 1 : null);
+        }
+      } else {
+        const tA = st.n === 2 ? sums[0] : sums[0] + sums[2];
+        const tB = st.n === 2 ? sums[1] : sums[1] + sums[3];
+        winner = tA < tB ? 0 : (tB < tA ? 1 : null);
+      }
       st.finished = { type: 'tranca', sums, team: winner, points: winner == null ? 0 : 1 };
+      if (low != null) st.finished.low = low;
     }
     endTurn(st);
     return st.finished;
@@ -2582,11 +2602,15 @@ function revealHTML(){
     sub = `${kindTx} · <span class="pt">+${f.points}</span> pra ${(st.n || 4) === 2 ? (mine ? 'você' : esc(seatName(1 - myT))) : (mine ? 'NÓS' : 'ELES')}`;
   } else {
     head = '🔒 Trancou!';
+    const quem = (st.n || 4) === 2 ? (f.team === myT ? 'você' : esc(seatName(1 - myT))) : (f.team === myT ? 'NÓS' : 'ELES');
     sub = f.team == null ? 'Empate no peso — ninguém pontua'
-        : `Menos pedra na mão: <span class="pt">+1</span> pra ${(st.n || 4) === 2 ? (f.team === myT ? 'você' : esc(seatName(1 - myT))) : (f.team === myT ? 'NÓS' : 'ELES')}`;
+        : f.low != null
+          ? `Menor mão: <b>${f.low === view.mySeat ? 'você' : esc(seatName(f.low))}</b> (${f.sums[f.low]}) — <span class="pt">+1</span> pra ${quem}`
+          : `Menos pedra na mão: <span class="pt">+1</span> pra ${quem}`;
   }
   const n = st.n || 4;
   const medal = p => {
+    if (f.type === 'tranca' && f.low === p) return '👑 ';
     if (!st.burro) return '';
     if (f.type === 'burro' && p === f.burro) return '🐴 ';
     const i = (st.out || []).indexOf(p);
@@ -2606,9 +2630,12 @@ function revealHTML(){
   const sums = st.hands.map(CORE.handSum);
   const tMy = n === 2 ? sums[myT] : sums[myT] + sums[myT + 2];
   const tOp = n === 2 ? sums[1 - myT] : sums[1 - myT] + sums[(1 - myT) + 2];
+  const indiv = f.type === 'tranca' && f.low != null;
+  const meuWin  = indiv ? f.team === myT     : tMy <= tOp;
+  const opWin   = indiv ? f.team === 1 - myT : tOp <= tMy;
   const teamsum = st.burro ? '' :
-    `<div class="teamsum"><span class="${tMy <= tOp ? 'win' : ''}">Nós: ${tMy} na mão</span>
-     <span class="${tOp <= tMy ? 'win' : ''}">Eles: ${tOp}</span></div>`;
+    `<div class="teamsum"><span class="${meuWin ? 'win' : ''}">Nós: ${tMy} na mão</span>
+     <span class="${opWin ? 'win' : ''}">Eles: ${tOp}</span></div>`;
   return `<h2>${head}</h2><p class="sub">${sub}</p>
     <div class="reveal">${rows}${dorme}${teamsum}</div>`;
 }
