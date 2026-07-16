@@ -461,6 +461,10 @@ input{font-family:inherit;}
 .histrow .hq2{opacity:.6;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:34%;}
 .histrow .hq{margin-left:auto;opacity:.55;font-size:11px;white-space:nowrap;}
 
+.obdots{display:flex;gap:7px;justify-content:center;margin:12px 0 2px;}
+.obdots span{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25);}
+.obdots span.on{background:var(--amber);}
+
 /* barrinha "nova versão" */
 #updBar{position:fixed;left:50%;transform:translateX(-50%) translateY(80px);bottom:calc(14px + env(safe-area-inset-bottom));
   z-index:220;border:0;border-radius:14px;padding:12px 18px;font:inherit;font-weight:800;font-size:14px;
@@ -853,7 +857,7 @@ input{font-family:inherit;}
   <button id="btnTheme" class="ghostbtn">🎨 Personalizar</button>
   <div class="specs">sem cadastro · sem anúncios
     <span id="statsLine" class="hidden" style="display:block;margin-top:6px;color:var(--amber2)"></span>
-    <span class="verline" style="display:block;margin-top:4px;font-size:10px;opacity:.4">v2026.07.16b</span></div>
+    <span class="verline" style="display:block;margin-top:4px;font-size:10px;opacity:.4">v2026.07.16c</span></div>
 </div>
 
 <!-- ============ SALA DE ESPERA ============ -->
@@ -1213,13 +1217,21 @@ const CORE = (() => {
 
   /* ---------- IA (justa: só usa a própria mão, as pontas,
      contagens públicas e o histórico de quem passou) ---------- */
-  function aiChoose(st, p){
+  function aiChoose(st, p, lvl){
+    lvl = lvl === 'facil' || lvl === 'craque' ? lvl : 'esperto';
     const mv = legalMoves(st, p);
     if (!mv.length) return null;
     if (mv.length === 1) return { tileId: mv[0].tile.id, end: mv[0].end };
     const e = ends(st);
     const n = st.n || 4;
     const next = (p + 1) % n, partner = (n === 4 && !st.burro) ? (p + 2) % 4 : -1;
+    const prev = (p + n - 1) % n;              // o outro adversário, nas duplas
+    let vis = null;
+    if (lvl === 'craque') {                    // contagem pública: mesa + minha mão
+      vis = [0, 0, 0, 0, 0, 0, 0];
+      for (const t of st.line) { vis[t.a]++; if (t.b !== t.a) vis[t.b]++; }
+      for (const t of st.hands[p]) { vis[t.a]++; if (t.b !== t.a) vis[t.b]++; }
+    }
     let best = null, bs = -1e9;
     for (const m of mv) {
       const t = m.tile;
@@ -1228,7 +1240,13 @@ const CORE = (() => {
       else if (m.end === 'R') { nL = e.L; nR = t.a === e.R ? t.b : t.a; }
       else { nR = e.R; nL = t.b === e.L ? t.a : t.b; }
       const rest = st.hands[p].filter(x => x.id !== t.id);
-      let s = t.a + t.b;                       // livrar-se de pedra pesada
+      let s;
+      if (lvl === 'facil') {                   // joga de boa: quase aleatório
+        s = (t.a + t.b) * 0.5 + rng() * 9;
+        if (s > bs) { bs = s; best = m; }
+        continue;
+      }
+      s = t.a + t.b;                           // livrar-se de pedra pesada
       if (isD(t)) s += 5 + t.a * 0.4;          // carroça sai cedo
       const cover = rest.filter(x => fits(x, nL)).length
                   + rest.filter(x => fits(x, nR)).length;
@@ -1242,7 +1260,23 @@ const CORE = (() => {
       if (rest.length <= 3) {
         s -= [nL, nR].filter(v => !rest.some(x => fits(x, v))).length * 1.6;
       }
-      s += rng() * 1.4;
+      if (lvl === 'craque') {
+        if (partner >= 0) {                    // também mira o adversário anterior
+          const bo = [nL, nR].filter(v => st.passedOn[prev].has(v)).length;
+          s += bo === 2 ? 7 : bo * 1.8;
+        }
+        const scarce = v => Math.max(0, vis[v] - 1) * (rest.some(x => fits(x, v)) ? 1.1 : 0.4);
+        s += (scarce(nL) + scarce(nR)) * 0.9;  // deixar pontas raras pros outros
+        if (partner >= 0 && st.hands[partner].length <= 2) {
+          const abre = [nL, nR].filter(v => !st.passedOn[partner].has(v)).length;
+          s += abre * 3.2;                     // parceiro quase batendo: abre caminho
+        }
+        if (isD(t)) s += vis[t.a] * 0.9;       // carroça de valor sumido: urgência
+        if (rest.length <= 2 && [nL, nR].some(v => rest.some(x => fits(x, v)))) s += 6;
+        s += rng() * 0.6;
+      } else {
+        s += rng() * 1.4;
+      }
       if (s > bs) { bs = s; best = m; }
     }
     return { tileId: best.tile.id, end: best.end };
@@ -3232,6 +3266,11 @@ function showScreen(id){
   ['menu', 'wait', 'game'].forEach(s => $('#' + s).classList.toggle('hidden', s !== id));
 }
 
+const AI_LVLS = [
+  { id: 'facil',   n: '😌 De boa' },
+  { id: 'esperto', n: '🙂 Esperto' },
+  { id: 'craque',  n: '🧠 Craque' }
+];
 const MODE_LIST = [
   { lbl: '👥 4 na mesa · 6 pedras + dorme',            cfg: { n: 4, per: 6, buy: false } },
   { lbl: '👥 4 na mesa · 7 pedras',                    cfg: { n: 4, per: 7, buy: false } },
@@ -3244,17 +3283,25 @@ const modeLabel = c => (MODE_LIST.find(m =>
   !!m.cfg.burro === !!c.burro) || MODE_LIST[0]).lbl;
 function modeMenu(cb){
   let alvo = 6;
+  let nivel = AI_LVLS.some(l => l.id === store.get('dom_ai')) ? store.get('dom_ai') : 'esperto';
   const m = showModal(`<h2>Como cês jogam?</h2>
     <p class="sub">nas mesas de 4, vaga que sobrar vira robô</p>
     <div class="seclab">Partida até</div>
     <div class="skinrow">${[4, 6, 10].map(v =>
       `<div class="skinchip tgtchip ${v === 6 ? 'on' : ''}" data-t="${v}"><span class="sn">${v} pontos</span></div>`).join('')}</div>
+    <div class="seclab">Robôs</div>
+    <div class="skinrow">${AI_LVLS.map(l =>
+      `<div class="skinchip aichip ${l.id === nivel ? 'on' : ''}" data-ai="${l.id}"><span class="sn">${l.n}</span></div>`).join('')}</div>
     <p class="sub" style="font-size:11.5px;margin-top:2px">no Burrinho não tem placar — vale o castigo 🐴</p>`,
-    MODE_LIST.map(md => ({ label: md.lbl, fn: () => { closeModal(); cb({ ...md.cfg, target: alvo }); } }))
+    MODE_LIST.map(md => ({ label: md.lbl, fn: () => { closeModal(); store.set('dom_ai', nivel); cb({ ...md.cfg, target: alvo, ai: nivel }); } }))
       .concat([{ label: 'voltar', ghost: true, fn: closeModal }]));
   m.querySelectorAll('.tgtchip').forEach(c => c.onclick = () => {
     SND.tap(); alvo = +c.dataset.t;
     m.querySelectorAll('.tgtchip').forEach(x => x.classList.toggle('on', x === c));
+  });
+  m.querySelectorAll('.aichip').forEach(c => c.onclick = () => {
+    SND.tap(); nivel = c.dataset.ai;
+    m.querySelectorAll('.aichip').forEach(x => x.classList.toggle('on', x === c));
   });
 }
 
@@ -3379,7 +3426,7 @@ async function localTick(){
     if (!LOCAL.on || view.st !== st || st.turn !== p) return;
   }
   hideBubble(p);
-  const mv = CORE.aiChoose(st, p);
+  const mv = CORE.aiChoose(st, p, (view.cfg || {}).ai);
   if (!mv) {
     SND.pass();
     const tx = CHAT.maybe(p, seatAv(p), 'pass');
@@ -3644,7 +3691,8 @@ async function createRoom(){
     }
     ON.id = store.get('dom_pid') || uid(); store.set('dom_pid', ON.id);
     await NET.PUT('rooms/' + code, {
-      createdAt: now(), phase: 'wait', cfg: { per: 6, n: 4, buy: false, target: 6 },
+      createdAt: now(), phase: 'wait',
+      cfg: { per: 6, n: 4, buy: false, target: 6, ai: AI_LVLS.some(l => l.id === store.get('dom_ai')) ? store.get('dom_ai') : 'esperto' },
       players: { 0: { name: me.name, av: me.av, id: ON.id, lastSeen: now() } }
     });
     netErr('');
@@ -3798,7 +3846,7 @@ function onRoom(room){
     NET.PATCH('rooms/' + ON.code + '/players/' + seat,
       { bot: false, away: null, name: myName, av: myAv, id: ON.id }).catch(() => {});
   }
-  view.cfg = Object.assign({ per: 6, n: 4, buy: false, target: 6 }, room.cfg || {});
+  view.cfg = Object.assign({ per: 6, n: 4, buy: false, target: 6, ai: 'esperto' }, room.cfg || {});
   view.phase = room.phase;
   view.hostSeat = hostSeatOf(room);
   view.seats = [0, 1, 2, 3].map(s => {
@@ -4065,7 +4113,7 @@ async function hostTimeout(seq, p){
   const m2 = { ...cur.g.m, score: [...cur.g.m.score] };
   let drew = 0;
   while (st2.buy && !CORE.legalMoves(st2, p).length && st2.dorme.length) { CORE.applyBuy(st2, p); drew++; }
-  const mv = CORE.aiChoose(st2, p);
+  const mv = CORE.aiChoose(st2, p, (view.cfg || {}).ai);
   const extra = { ['chat/' + now() + '_' + p]: { s: p, t: '⏱ o tempo acabou — a mesa jogou por mim', ts: now() } };
   let ev;
   if (mv) { CORE.applyPlay(st2, p, mv.tileId, mv.end); ev = { k: 'play', s: p }; }
@@ -4084,7 +4132,7 @@ async function botMove(seq, p){
   const m2 = { ...cur.g.m, score: [...cur.g.m.score] };
   let drew = 0;
   while (st2.buy && !CORE.legalMoves(st2, p).length && st2.dorme.length) { CORE.applyBuy(st2, p); drew++; }
-  const mv = CORE.aiChoose(st2, p);
+  const mv = CORE.aiChoose(st2, p, (view.cfg || {}).ai);
   const extra = {};
   const say = (ev) => {
     const tx = CHAT.maybe(p, seatAv(p), ev);
@@ -4400,7 +4448,8 @@ function hostModePick(){
       if (Object.keys(patch).length)
         await NET.PATCH('rooms/' + ON.code + '/players', patch).catch(() => {});
     }
-    NET.PATCH('rooms/' + ON.code + '/cfg', { per: cfg.per, n: cfg.n, buy: !!cfg.buy, burro: !!cfg.burro }).catch(() => {});
+    NET.PATCH('rooms/' + ON.code + '/cfg', { per: cfg.per, n: cfg.n, buy: !!cfg.buy, burro: !!cfg.burro,
+      target: cfg.target || 6, ai: cfg.ai || 'esperto' }).catch(() => {});
   });
 }
 
@@ -4595,6 +4644,15 @@ function gameMenu(){
         closeModal(); gameMenu();
       } },
     { label: '🎨 Personalizar', ghost: true, fn: () => { closeModal(); customize(); } },
+    ...(LOCAL.on ? [{
+      label: '🤖 Robôs: ' + (AI_LVLS.find(l => l.id === (view.cfg || {}).ai) || AI_LVLS[1]).n,
+      ghost: true, fn: () => {
+        const cur = AI_LVLS.findIndex(l => l.id === (view.cfg || {}).ai);
+        const nx = AI_LVLS[(Math.max(cur, 0) + 1) % AI_LVLS.length];
+        view.cfg.ai = nx.id; store.set('dom_ai', nx.id);
+        closeModal(); gameMenu();
+      }
+    }] : []),
     ...(view.online && ON.code ? [{
       label: '🔔 Aviso de vez: ' + (NOTIF.granted() ? (NOTIF.pref() ? 'ligado' : 'desligado') : 'ativar'),
       ghost: true, fn: () => {
@@ -4622,12 +4680,32 @@ function inviteText(){
 }
 
 const APP_NEWS = [
+  '🤖 <b>Robôs com nível</b>: De boa, Esperto ou Craque — escolhe ao criar a mesa',
   '🖼️ <b>Retratos novos</b> desenhados: a galera ganhou cara (escolhe o seu no menu!)',
   '🪵 <b>Fundos de mesa</b>: toalha da vó, azulejo, madeira e mais, no Personalizar',
   '📊 <b>Placar</b> com histórico, sequência e rivalidade',
   '📤 <b>Compartilhar</b> o resultado como imagem no fim da partida',
   '🔔 Aviso no celular quando <b>é a sua vez</b> (mesa online)',
 ];
+const ONB = [
+  { e: '🁫', t: 'Bem-vindo à mesa!', x: 'Casa os números das pedras e seja o primeiro a esvaziar a mão: isso é <b>bater</b>. Nas mesas de 4, você e o parceiro da frente são uma <b>dupla</b>.' },
+  { e: '👆', t: 'Jogar é simples', x: 'Toca numa pedra da tua mão e escolhe a ponta da mesa. Se nenhuma servir, o jogo te avisa e você <b>passa</b> (ou compra, no modo com dorme).' },
+  { e: '🏆', t: 'Pontos e malandragem', x: 'Batida simples vale <b>1</b> · de carroça <b>2</b> · lá-e-lô <b>3</b> · cruzada <b>4</b>. Se a mesa <b>trancar</b>, vence quem tiver menos na mão. Primeiro a chegar na meta leva!' }
+];
+function showOnboard(i){
+  i = i || 0;
+  const s = ONB[i], last = i === ONB.length - 1;
+  showModal(
+    `<div style="font-size:52px;line-height:1">${s.e}</div>
+     <h2>${s.t}</h2><p class="sub" style="text-align:left">${s.x}</p>
+     <div class="obdots">${ONB.map((_, j) => `<span class="${j === i ? 'on' : ''}"></span>`).join('')}</div>`,
+    [
+      { label: last ? 'Bora jogar!' : 'Próximo', fn: () => { closeModal();
+          if (last) store.set('dom_onboard', '1'); else showOnboard(i + 1); } },
+      ...(last ? [] : [{ label: 'Pular', ghost: true, fn: () => { store.set('dom_onboard', '1'); closeModal(); } }])
+    ]);
+}
+
 function newsCheck(){
   const vEl = document.querySelector('.verline');
   const cur = vEl ? vEl.textContent.trim() : '';
@@ -4646,7 +4724,10 @@ function boot(){
   applySkin(initialSkin());
   applyBg(initialBg());
   hintsOn = store.get('dom_hints') !== '0';
+  const virgem = !store.get('dom_ver') && !store.get('dom_onboard');
   newsCheck();
+  if (virgem) setTimeout(() => showOnboard(0), 450);
+  else store.set('dom_onboard', '1');
   try {
     const rawSeat = store.get('dom_seat');
     if (rawSeat) {
@@ -4830,7 +4911,7 @@ function boot(){
     if (NOTIF.ok() && Notification.permission === 'default') bN.hidden = false;
     bN.onclick = async () => { SND.tap(); await NOTIF.ask(); bN.hidden = true; };
   }
-  if (location.search.includes('debug')) window.__D = { view, CORE, NET, ON, LOCAL, startLocal, processG, applyTheme, applySkin, THEMES, SKINS, customize, SND, moveSeat, MODE_LIST, modeMenu, requestPause, doResume, spawnDrift, rerollProp: rerollAmbience, applySize, SIZES, CHAT, pickFresh, FR, HIST, NOTIF, shareResult, loadHist, newsCheck, applyBg, BGS, ILLUS };
+  if (location.search.includes('debug')) window.__D = { view, CORE, NET, ON, LOCAL, startLocal, processG, applyTheme, applySkin, THEMES, SKINS, customize, SND, moveSeat, MODE_LIST, modeMenu, requestPause, doResume, spawnDrift, rerollProp: rerollAmbience, applySize, SIZES, CHAT, pickFresh, FR, HIST, NOTIF, shareResult, loadHist, newsCheck, applyBg, BGS, ILLUS, showOnboard, AI_LVLS };
 }
 boot();
 </script>
