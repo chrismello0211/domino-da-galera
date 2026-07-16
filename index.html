@@ -445,6 +445,27 @@ input{font-family:inherit;}
   background:rgba(0,0,0,.28);border-radius:12px;padding:8px 12px;margin-top:4px;}
 .teamsum .win{color:var(--amber2);}
 
+/* placar histórico */
+.histbox{max-height:min(38dvh,300px);overflow-y:auto;margin:10px 0 2px;display:flex;flex-direction:column;gap:6px;}
+.histrow{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.22);border-radius:10px;
+  padding:7px 10px;font-size:13.5px;text-align:left;}
+.histrow b{font-size:15px;}
+.histrow .hico{font-size:17px;}
+.histrow .hmd{opacity:.75;font-size:12px;}
+.histrow .hq2{opacity:.6;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:34%;}
+.histrow .hq{margin-left:auto;opacity:.55;font-size:11px;white-space:nowrap;}
+
+/* barrinha "nova versão" */
+#updBar{position:fixed;left:50%;transform:translateX(-50%) translateY(80px);bottom:calc(14px + env(safe-area-inset-bottom));
+  z-index:220;border:0;border-radius:14px;padding:12px 18px;font:inherit;font-weight:800;font-size:14px;
+  color:#1c1608;background:linear-gradient(180deg,#ffd873,#eeb63e);box-shadow:0 8px 22px rgba(0,0,0,.45);
+  opacity:0;transition:transform .35s,opacity .35s;cursor:pointer;}
+#updBar.show{transform:translateX(-50%) translateY(0);opacity:1;}
+
+/* novidades da versão */
+.newsbox{display:flex;flex-direction:column;gap:7px;margin:10px 0 4px;text-align:left;}
+.newsbox p{background:rgba(0,0,0,.2);border-radius:10px;padding:8px 11px;font-size:13.5px;margin:0;}
+
 /* pedras decorativas do menu */
 .mt{position:relative;display:flex;flex-direction:column;width:50px;height:100px;border-radius:9px;
   background:linear-gradient(160deg,var(--stone1),var(--stone3));box-shadow:0 6px 14px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.7);}
@@ -586,7 +607,7 @@ input{font-family:inherit;}
   .oname{font-size:10px;max-width:64px;}
   .mback{width:7px;height:13px;}
   #dorme .mback{width:10px;height:19px;}
-  #propSlot{display:none;}
+  #propSlot{right:auto;left:8px;top:auto;bottom:8px;width:36px;opacity:.55;}
   /* ===== deitado NATIVO: mão vira coluna na direita, mesa fica com o resto ===== */
   #game{display:grid;grid-template-columns:1fr 118px;grid-template-rows:auto 1fr;
         grid-template-areas:"top top" "board rail";}
@@ -625,7 +646,7 @@ input{font-family:inherit;}
         padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);}
   #topbar{grid-area:top;}
   #board{grid-area:board;}
-  #propSlot{display:none;}
+  #propSlot{right:auto;left:12px;top:auto;bottom:12px;width:46px;opacity:.6;}
   #handbar{grid-area:rail;min-height:0;flex-direction:column;justify-content:flex-start;gap:8px;
     padding:12px 9px calc(12px + env(safe-area-inset-bottom)) 9px;
     box-shadow:-5px 0 16px rgba(0,0,0,.5), inset 3px 0 0 rgba(255,255,255,.07);}
@@ -822,10 +843,11 @@ input{font-family:inherit;}
   </div>
   <div id="netStatus"></div>
   <button id="btnInstall" class="ghostbtn hidden">📲 Instalar o app</button>
+  <button id="btnStats" class="ghostbtn">📊 Placar</button>
   <button id="btnTheme" class="ghostbtn">🎨 Personalizar</button>
   <div class="specs">sem cadastro · sem anúncios
     <span id="statsLine" class="hidden" style="display:block;margin-top:6px;color:var(--amber2)"></span>
-    <span class="verline" style="display:block;margin-top:4px;font-size:10px;opacity:.4">v2026.07.10</span></div>
+    <span class="verline" style="display:block;margin-top:4px;font-size:10px;opacity:.4">v2026.07.16</span></div>
 </div>
 
 <!-- ============ SALA DE ESPERA ============ -->
@@ -841,6 +863,7 @@ input{font-family:inherit;}
   <div class="sharerow">
     <button id="btnWpp" class="sharebtn wpp">🟢 Chamar no WhatsApp</button>
     <button id="btnCopy" class="sharebtn">📋 Copiar convite</button>
+    <button id="btnNotif" class="sharebtn" hidden>🔔 Avisar quando for minha vez</button>
   </div>
   <div id="modePills">
     <button class="pill on" id="btnMode">👥 4 na mesa · 6 pedras + dorme</button>
@@ -2946,6 +2969,121 @@ function toastSafe(tx){
 /* ---- placar de vida (só neste aparelho) ---- */
 function loadStats(){ try { return JSON.parse(store.get('dom_stats')) || { v: 0, d: 0 }; } catch (e) { return { v: 0, d: 0 }; } }
 function bumpStats(win){ const s = loadStats(); win ? s.v++ : s.d++; store.set('dom_stats', JSON.stringify(s)); }
+
+/* ===== avisos locais (sem servidor): "é a sua vez" quando o app está em 2º plano ===== */
+const NOTIF = {
+  ok(){ return 'Notification' in window && 'serviceWorker' in navigator; },
+  granted(){ return NOTIF.ok() && Notification.permission === 'granted'; },
+  pref(){ return store.get('dom_notif') !== '0'; },
+  can(){ return NOTIF.granted() && NOTIF.pref(); },
+  decide(){ if (!NOTIF.ok()) return 'sem';
+    if (Notification.permission !== 'granted') return 'perm';
+    if (!NOTIF.pref()) return 'off';
+    return document.hidden ? 'vai' : 'visivel'; },
+  async ask(){
+    if (!NOTIF.ok()) { toast('Esse aparelho não aceita avisos'); return 'sem'; }
+    try {
+      const r = await Notification.requestPermission();
+      if (r === 'granted') { store.set('dom_notif', '1'); toast('🔔 Avisos ativados!'); }
+      else if (r === 'denied') toast('Avisos bloqueados no aparelho');
+      return r;
+    } catch (e) { return 'erro'; }
+  },
+  fire(title, body){
+    if (NOTIF.decide() !== 'vai') return;
+    navigator.serviceWorker.ready.then(r => r.showNotification(title, {
+      body, icon: 'icon-192.png', badge: 'icon-192.png',
+      tag: 'domino', renotify: true, vibrate: [90, 40, 90]
+    })).catch(() => {});
+  },
+  clear(){
+    if (!NOTIF.ok()) return;
+    navigator.serviceWorker.ready.then(r =>
+      r.getNotifications({ tag: 'domino' }).then(ns => ns.forEach(n => n.close()))
+    ).catch(() => {});
+  }
+};
+document.addEventListener('visibilitychange', () => { if (!document.hidden) NOTIF.clear(); });
+
+/* ===== placar com histórico (só no aparelho) ===== */
+function loadHist(){
+  try { const j = JSON.parse(store.get('dom_hist') || '{"g":[]}'); return Array.isArray(j.g) ? j : { g: [] }; }
+  catch (e) { return { g: [] }; }
+}
+const HIST = {
+  _last: 0,
+  record(win){
+    const t = now();
+    if (t - HIST._last < 3000) return;                 // trava contra registro em dobro
+    HIST._last = t;
+    const cfg = view.cfg || {}, m = view.m || {};
+    const me = view.online ? view.mySeat : 0;
+    const myT = view.online ? TEAM_OF(view.mySeat) : 0;
+    const nn = cfg.n || 4;
+    let nos = [], eles = [], sc = null;
+    if (cfg.burro) { nos = [seatName(me)]; }
+    else if (nn === 2) {
+      nos = [seatName(me)]; eles = [seatName(1 - me)];
+      sc = [m.score ? m.score[myT] : 0, m.score ? m.score[1 - myT] : 0];
+    } else {
+      nos = [seatName(me), seatName((me + 2) % 4)];
+      eles = [seatName((me + 1) % 4), seatName((me + 3) % 4)];
+      sc = [m.score ? m.score[myT] : 0, m.score ? m.score[1 - myT] : 0];
+    }
+    const h = loadHist();
+    h.g.unshift({ t, on: view.online ? 1 : 0, md: modeLabel(cfg), tg: m.target || 6,
+                  w: win ? 1 : 0, sc, nos, eles });
+    if (h.g.length > 60) h.g.length = 60;
+    store.set('dom_hist', JSON.stringify(h));
+  },
+  streaks(){
+    const g = loadHist().g;
+    let cur = 0, best = 0, run = 0;
+    for (const r of g) { if (r.w) cur++; else break; }
+    for (let i = g.length - 1; i >= 0; i--) { run = g[i].w ? run + 1 : 0; if (run > best) best = run; }
+    return { cur, best };
+  },
+  fmtWhen(t){
+    const d = new Date(t), h0 = new Date(); h0.setHours(0, 0, 0, 0);
+    if (t >= h0.getTime()) return 'hoje';
+    if (t >= h0.getTime() - 86400000) return 'ontem';
+    return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+  },
+  show(confirmDel){
+    const s = loadStats(), g = loadHist().g;
+    const tot = s.v + s.d;
+    if (!tot && !g.length) {
+      return showModal(`<h2>📊 Seu placar</h2><p class="sub">Nenhuma partida terminada ainda — bora jogar a primeira? 😄</p>`,
+        [{ label: 'Bora!', fn: closeModal }]);
+    }
+    const pct = tot ? Math.round(100 * s.v / tot) : 0;
+    const st2 = HIST.streaks();
+    const duo = g.filter(r => r.sc && r.md.indexOf('4 na mesa') >= 0);
+    const dv = duo.filter(r => r.w).length, dd = duo.length - dv;
+    const rows = g.slice(0, 12).map(r => {
+      const ico = r.sc == null ? '🐴' : (r.w ? '🏆' : '😿');
+      const placar = r.sc ? `<b>${r.sc[0]}×${r.sc[1]}</b>` : (r.w ? '<b>escapou</b>' : '<b>burro</b>');
+      const quem = r.eles && r.eles.length ? ` <span class="hq2">vs ${esc(r.eles.join(' & '))}</span>` : '';
+      return `<div class="histrow"><span class="hico">${ico}</span> ${placar}
+        <span class="hmd">${esc(r.md.replace(/^[^ ]+ /, ''))}</span>${quem}
+        <span class="hq">${HIST.fmtWhen(r.t)}${r.on ? ' · online' : ''}</span></div>`;
+    }).join('');
+    const nota = tot > g.length ? `<p class="sub" style="font-size:11px;opacity:.65">detalhes guardados a partir do v2026.07.16</p>` : '';
+    showModal(
+      `<h2>📊 Seu placar</h2>
+       <p class="sub"><b>${tot}</b> ${tot === 1 ? 'partida' : 'partidas'} · <b>${s.v}</b> V · <b>${s.d}</b> D (${pct}%)</p>
+       <p class="sub">🔥 sequência: <b>${st2.cur}</b> · melhor: <b>${st2.best}</b>${duo.length ? ` &nbsp;·&nbsp; nas duplas: <b>${dv}</b>×<b>${dd}</b>` : ''}</p>
+       <div class="histbox">${rows || '<p class="sub">os detalhes das próximas partidas aparecem aqui</p>'}</div>${nota}`,
+      [
+        { label: confirmDel ? '⚠️ Apagar mesmo?' : 'Apagar histórico', ghost: true, fn: () => {
+            if (!confirmDel) { closeModal(); HIST.show(true); return; }
+            store.set('dom_hist', '{"g":[]}'); store.set('dom_stats', '{"v":0,"d":0}');
+            statsLine(); closeModal(); toast('Placar zerado');
+          } },
+        { label: 'Fechar', fn: closeModal }
+      ]);
+  }
+};
 function statsLine(){
   const s = loadStats(), el = $('#statsLine');
   if (!el) return;
@@ -3377,7 +3515,7 @@ function localMatchEnd(){
   if (view.m && view.m.burro) {
     const b = m.pen.findIndex(x => x >= 4);
     const mine = b !== 0;
-    bumpStats(mine);
+    bumpStats(mine); HIST.record(mine);
     if (mine) { SND.win(); confetti(); } else SND.tranca();
     [1, 2, 3].filter(s => s !== b).slice(0, 2).forEach((s, i) => setTimeout(() => {
       const tx = CHAT.maybe(s, seatAv(s), 'burroZoa');
@@ -3387,13 +3525,14 @@ function localMatchEnd(){
       `<h2>${b === 0 ? '🐴 Você é o BURRO!' : '🐴 ' + esc(seatName(b)) + ' é o BURRO!'}</h2>
        <p class="sub">${b === 0 ? 'a mão ia chegar a 8 pedras… acontece 🫠' : 'não aguentou o castigo — 8 pedras é demais'}</p>`,
       [
+        { label: '📤 Compartilhar', ghost: true, fn: shareEnd },
         { label: '🔁 Revanche', fn: () => { closeModal(); startLocal(view.cfg); } },
         { label: 'Voltar ao início', ghost: true, fn: () => { closeModal(); leaveLocal(); } }
       ]);
   }
   const winner = m.score[0] >= m.target ? 0 : 1;
   const mine = winner === 0;
-  bumpStats(mine);
+  bumpStats(mine); HIST.record(mine);
   if (mine) { SND.win(); confetti(); } else SND.tranca();
   const nnF = view.st ? (view.st.n || 4) : 4;
   const botsF = nnF === 4 ? [1, 2, 3] : [1];
@@ -3406,6 +3545,7 @@ function localMatchEnd(){
              : ((view.st && view.st.n === 2) ? seatName(1) + ' levou essa…' : 'Eles levaram essa…')}</h2>
      <p class="sub">NÓS <span class="pt">${m.score[0]}</span> × <span class="pt">${m.score[1]}</span> ELES</p>`,
     [
+      { label: '📤 Compartilhar', ghost: true, fn: shareEnd },
       { label: 'Revanche', fn: () => { closeModal(); LOCAL.m = CORE.newMatch(view.cfg.target || 6, view.cfg.burro); view.m = LOCAL.m; localDeal(); } },
       { label: 'Menu', ghost: true, fn: () => { closeModal(); leaveLocal(); } }
     ]);
@@ -3415,7 +3555,7 @@ function leaveLocal(){
   hideSaiBar(); hidePassBar(); LOCAL.pick = false;
   LOCAL.on = false;
   clearTimeout(LOCAL.idle);
-  statsLine();
+  statsLine(); tryUpdBar();
   showScreen('menu');
 }
 
@@ -3696,6 +3836,7 @@ function clearThink(){ clearTimeout(ON.think); if (ON.thinkSeat >= 0) hideBubble
 function clearIdle(){ clearTimeout(ON.idle); clearTimeout(ON.warn); }
 function armIdle(){
   clearIdle();
+  NOTIF.fire('É a sua vez! 🁫', 'Mesa ' + (ON.code || '') + ' — tão te esperando');
   ON.idle = setTimeout(() => { SND.turn(); vibrate(20); toast('Sua vez!'); }, 15000);
   const lim = (window.__TURNMS || 120000);
   ON.warn = setTimeout(() => { SND.turn(); vibrate([30, 40, 30]); toast('⏱ Meio minuto pra jogar!'); }, Math.max(1000, lim - 30000));
@@ -4054,30 +4195,34 @@ function matchEndOnline(){
     }
   }
   ON.endShown = true;
+  NOTIF.fire('Fim de partida! 🏁', 'Mesa ' + (ON.code || '') + ' — vem ver o placar');
   const m = view.m, myT = TEAM_OF(view.mySeat);
   if (view.cfg && view.cfg.burro) {
     const b = (m.pen || []).findIndex(x => x >= 4);
     const mine = b !== view.mySeat;
-    bumpStats(mine);
+    bumpStats(mine); HIST.record(mine);
     if (mine) { SND.win(); confetti(); } else SND.tranca();
     const host = view.mySeat === view.hostSeat;
     return showModal(
       `<h2>${b === view.mySeat ? '🐴 Você é o BURRO!' : '🐴 ' + esc(seatName(b)) + ' é o BURRO!'}</h2>
        <p class="sub">${b === view.mySeat ? 'a mão ia chegar a 8 pedras… acontece 🫠' : 'levou 4 castigos — a mesa agradece 😄'}</p>`,
       host
-        ? [{ label: '🔁 Revanche', fn: () => { closeModal(); dealOnline(true); } },
+        ? [{ label: '📤 Compartilhar', ghost: true, fn: shareEnd },
+           { label: '🔁 Revanche', fn: () => { closeModal(); dealOnline(true); } },
            { label: 'Encerrar a mesa', ghost: true, fn: () => { closeModal(); leaveOnline(true); } }]
-        : [{ label: 'Beleza', ghost: true, fn: closeModal }]);
+        : [{ label: '📤 Compartilhar', ghost: true, fn: shareEnd },
+           { label: 'Beleza', ghost: true, fn: closeModal }]);
   }
   const winner = m.score[0] >= m.target ? 0 : 1;
   const mine = winner === myT;
-  bumpStats(mine);
+  bumpStats(mine); HIST.record(mine);
   if (mine) { SND.win(); confetti(); } else SND.tranca();
   const host = view.mySeat === view.hostSeat;
   const btns = host
     ? [{ label: 'Revanche', fn: () => { closeModal(); dealOnline(true); } },
        { label: 'Encerrar mesa', ghost: true, fn: () => { NET.DEL('rooms/' + ON.code).catch(() => {}); } }]
     : [{ label: 'Sair da mesa', ghost: true, fn: () => leaveOnline(true) }];
+  btns.unshift({ label: '📤 Compartilhar', ghost: true, fn: shareEnd });
   showModal(
     `<h2>${mine ? ((LOCAL.m && view.st && view.st.n === 2) ? '🏆 Vitória!' : '🏆 Vitória da dupla!')
              : ((view.st && view.st.n === 2) ? seatName(1) + ' levou essa…' : 'Eles levaram essa…')}</h2>
@@ -4228,6 +4373,7 @@ async function leaveOnline(write){
     } catch (e) {}
   }
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  tryUpdBar();
   view.online = false;
   closeModal();
   statsLine();
@@ -4285,6 +4431,105 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && !$('#game').classList.contains('hidden')) wakeLock();
 });
 
+/* ===== compartilhar o resultado como imagem (WhatsApp e afins) ===== */
+function drawShareTile(ctx, cx, cy, w, rot, a, b, th){
+  const h = w * 2, r = w * 0.16;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
+  const g = ctx.createLinearGradient(-w/2, -h/2, w/2, h/2);
+  g.addColorStop(0, th.stone1); g.addColorStop(1, th.stone3);
+  ctx.beginPath(); ctx.roundRect(-w/2, -h/2, w, h, r);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.lineWidth = w * 0.05; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
+  ctx.strokeStyle = th.stoneline; ctx.lineWidth = w * 0.06;
+  ctx.beginPath(); ctx.moveTo(-w/2 + r*0.6, 0); ctx.lineTo(w/2 - r*0.6, 0); ctx.stroke();
+  const POS = { 0: [], 1: [[0,0]], 2: [[-1,-1],[1,1]], 3: [[-1,-1],[0,0],[1,1]],
+    4: [[-1,-1],[1,-1],[-1,1],[1,1]], 5: [[-1,-1],[1,-1],[0,0],[-1,1],[1,1]],
+    6: [[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1]] };
+  const pip = (n, oy) => {
+    ctx.fillStyle = th.pip2;
+    (POS[n] || []).forEach(([px, py]) => {
+      ctx.beginPath();
+      ctx.arc(px * w * 0.22, oy + py * w * 0.22, w * 0.075, 0, 7);
+      ctx.fill();
+    });
+  };
+  pip(a, -h/4); pip(b, h/4);
+  ctx.restore();
+}
+async function shareResult(rec){
+  if (!rec) { toast('Nada pra compartilhar ainda'); return; }
+  try { await (document.fonts && document.fonts.ready); } catch (e) {}
+  const th = curTheme, W = 1080;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = W;
+  const ctx = cv.getContext('2d');
+  const bg = ctx.createRadialGradient(W/2, W*0.34, 90, W/2, W/2, W*0.78);
+  bg.addColorStop(0, th.felt1); bg.addColorStop(1, th.felt2);
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, W);
+  ctx.strokeStyle = th.wood2; ctx.lineWidth = 44; ctx.strokeRect(22, 22, W-44, W-44);
+  ctx.strokeStyle = th.woodhi; ctx.lineWidth = 4; ctx.strokeRect(46, 46, W-92, W-92);
+  drawShareTile(ctx, 130, W-150, 88, -0.32, 6, 3, th);
+  drawShareTile(ctx, W-130, W-160, 88, 0.42, 5, 2, th);
+  const cream = '#f7efdb';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = cream; ctx.globalAlpha = .92;
+  ctx.font = '54px "Lilita One", sans-serif';
+  ctx.fillText('DOMINÓ DA GALERA', W/2, 132);
+  ctx.globalAlpha = 1;
+  const burro = rec.sc == null;
+  const emoji = burro ? '🐴' : (rec.w ? '🏆' : '😿');
+  ctx.font = '150px sans-serif'; ctx.fillText(emoji, W/2, 330);
+  ctx.fillStyle = cream; ctx.font = '72px "Lilita One", sans-serif';
+  const t1 = burro ? (rec.w ? 'Escapei do burro!' : 'Deu burro…')
+    : (rec.w ? ((rec.nos || []).length > 1 ? 'Vitória da dupla!' : 'Vitória!') : 'Eles levaram essa…');
+  ctx.fillText(t1, W/2, 460);
+  if (!burro) {
+    ctx.font = '190px "Lilita One", sans-serif';
+    ctx.fillText(rec.sc[0] + ' × ' + rec.sc[1], W/2, 660);
+    ctx.font = '40px "Lilita One", sans-serif'; ctx.globalAlpha = .8;
+    const lado = (rec.nos || []).length > 1 ? ['NÓS', 'ELES'] : ['EU', 'ELE'];
+    ctx.fillText(lado[0], W/2 - 200, 730); ctx.fillText(lado[1], W/2 + 200, 730);
+    ctx.globalAlpha = 1;
+  }
+  ctx.font = '42px "Patrick Hand", sans-serif'; ctx.globalAlpha = .95;
+  const vs = (rec.eles && rec.eles.length)
+    ? (rec.nos || []).join(' & ') + '  vs  ' + rec.eles.join(' & ')
+    : (rec.nos || []).join(' & ');
+  ctx.fillText(vs, W/2, burro ? 610 : 812);
+  ctx.font = '32px "Patrick Hand", sans-serif'; ctx.globalAlpha = .7;
+  ctx.fillText(rec.md.replace(/^[^ ]+ /, '') + ' · ' + new Date(rec.t).toLocaleDateString('pt-BR'), W/2, burro ? 668 : 866);
+  ctx.globalAlpha = .85; ctx.font = '30px "Patrick Hand", sans-serif';
+  ctx.fillText('joga também → chrismello0211.github.io/domino-da-galera', W/2, W - 84);
+  ctx.globalAlpha = 1;
+  const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+  if (!blob) { toast('Não consegui montar a imagem'); return; }
+  const file = new File([blob], 'domino-resultado.png', { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+    try { await navigator.share({ files: [file], title: 'Dominó da Galera' }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'domino-resultado.png';
+  document.body.appendChild(a); a.click(); a.remove();
+  toast('Imagem salva! 📤');
+}
+const shareEnd = () => shareResult(loadHist().g[0]);
+
+let updRegPending = null;
+function updReady(reg){
+  const inGame = (typeof LOCAL !== 'undefined' && LOCAL.on) || (view.online && ON.code && !$('#game').classList.contains('hidden'));
+  if (inGame) { updRegPending = reg; return; }          // não atrapalha partida: mostra ao voltar pro menu
+  let bar = $('#updBar');
+  if (!bar) {
+    bar = document.createElement('button');
+    bar.id = 'updBar';
+    bar.textContent = '⬆️ Versão nova pronta — toque pra atualizar';
+    document.body.appendChild(bar);
+  }
+  bar.onclick = () => { bar.disabled = true; bar.textContent = 'Atualizando…';
+    if (reg.waiting) reg.waiting.postMessage('skipWaiting'); else location.reload(); };
+  bar.classList.add('show');
+}
+function tryUpdBar(){ if (updRegPending) { const r = updRegPending; updRegPending = null; updReady(r); } }
+
 function gameMenu(){
   const inGame = LOCAL.on || (view.online && ON.code);
   showModal(`<h2>Mesa</h2>`, [
@@ -4296,6 +4541,14 @@ function gameMenu(){
         closeModal(); gameMenu();
       } },
     { label: '🎨 Personalizar', ghost: true, fn: () => { closeModal(); customize(); } },
+    ...(view.online && ON.code ? [{
+      label: '🔔 Aviso de vez: ' + (NOTIF.granted() ? (NOTIF.pref() ? 'ligado' : 'desligado') : 'ativar'),
+      ghost: true, fn: () => {
+        if (!NOTIF.granted()) { NOTIF.ask().then(() => { closeModal(); gameMenu(); }); return; }
+        store.set('dom_notif', NOTIF.pref() ? '0' : '1');
+        closeModal(); gameMenu();
+      }
+    }] : []),
     ...(view.online && ON.code && view.phase === 'play' ? [{
       label: '⏸️ Pedir pausa', ghost: true, fn: () => { closeModal(); requestPause(); }
     }] : []),
@@ -4314,10 +4567,31 @@ function inviteText(){
   return `Bora um dominó? 🁢 Mesa *${ON.code}* → ${link}`;
 }
 
+const APP_NEWS = [
+  '📊 <b>Placar</b> novo no menu: histórico das partidas, sequência e rivalidade',
+  '📤 <b>Compartilhar</b> o resultado como imagem no fim da partida',
+  '🔔 Aviso no celular quando <b>é a sua vez</b> (mesa online)',
+  '🥤 O cafezinho voltou pra mesa no celular deitado',
+  '🔒 Tranca do 6 pedras + dorme: vence a <b>menor mão</b>',
+];
+function newsCheck(){
+  const vEl = document.querySelector('.verline');
+  const cur = vEl ? vEl.textContent.trim() : '';
+  if (!cur) return;
+  const last = store.get('dom_ver');
+  store.set('dom_ver', cur);
+  if (!last || last === cur) return;
+  setTimeout(() => showModal(
+    `<h2>✨ Novidades</h2><div class="newsbox">${APP_NEWS.map(n => `<p>${n}</p>`).join('')}</div>
+     <p class="sub" style="opacity:.6">${cur}</p>`,
+    [{ label: 'Bora jogar!', fn: closeModal }]), 700);
+}
+
 function boot(){
   applyTheme(initialTheme());
   applySkin(initialSkin());
   hintsOn = store.get('dom_hints') !== '0';
+  newsCheck();
   try {
     const rawSeat = store.get('dom_seat');
     if (rawSeat) {
@@ -4366,6 +4640,8 @@ function boot(){
   if (savedName) $('#nameIn').value = savedName;
   $('#nameIn').addEventListener('change', () => store.set('dom_name', sanitizeName($('#nameIn').value)));
   $('#btnTheme').onclick = () => { SND.tap(); customize(); };
+  $('#btnStats').onclick = () => { SND.tap(); HIST.show(); };
+  const sl = $('#statsLine'); if (sl) { sl.style.cursor = 'pointer'; sl.onclick = () => HIST.show(); }
   statsLine();
 
   buildPal();
@@ -4479,9 +4755,27 @@ function boot(){
   }
 
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      const track = w => w && w.addEventListener('statechange', () => {
+        if (w.state === 'installed' && navigator.serviceWorker.controller) updReady(reg);
+      });
+      track(reg.installing);
+      reg.addEventListener('updatefound', () => track(reg.installing));
+      if (reg.waiting && navigator.serviceWorker.controller) updReady(reg);
+    }).catch(() => {});
+    let swRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (swRefreshing) return; swRefreshing = true; location.reload();
+    });
   }
-  if (location.search.includes('debug')) window.__D = { view, CORE, NET, ON, LOCAL, startLocal, processG, applyTheme, applySkin, THEMES, SKINS, customize, SND, moveSeat, MODE_LIST, modeMenu, requestPause, doResume, spawnDrift, rerollProp: rerollAmbience, applySize, SIZES, CHAT, pickFresh, FR };
+
+  // botão de aviso na sala de espera (some depois que a pessoa decidir)
+  const bN = $('#btnNotif');
+  if (bN) {
+    if (NOTIF.ok() && Notification.permission === 'default') bN.hidden = false;
+    bN.onclick = async () => { SND.tap(); await NOTIF.ask(); bN.hidden = true; };
+  }
+  if (location.search.includes('debug')) window.__D = { view, CORE, NET, ON, LOCAL, startLocal, processG, applyTheme, applySkin, THEMES, SKINS, customize, SND, moveSeat, MODE_LIST, modeMenu, requestPause, doResume, spawnDrift, rerollProp: rerollAmbience, applySize, SIZES, CHAT, pickFresh, FR, HIST, NOTIF, shareResult, loadHist, newsCheck };
 }
 boot();
 </script>

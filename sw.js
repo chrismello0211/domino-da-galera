@@ -1,11 +1,10 @@
-/* Dominó da Galera — Service Worker
-   Estratégia:
+/* Dominó da Galera — Service Worker v2
    - documento (index.html): REDE primeiro, cache como reserva
-     → online sempre pega a versão nova; offline joga contra a casa normalmente.
-   - estáticos (manifesto, ícones): cache primeiro, atualiza por baixo.
-   - Firebase e qualquer coisa de fora da origem: NÃO intercepta (multiplayer intacto).
-   Ao mudar ícones/manifesto, suba o número do CACHE pra forçar atualização. */
-const CACHE = 'domino-v1';
+   - estáticos (manifesto, ícones): cache primeiro, atualiza por baixo
+   - Firebase e cross-origin: NÃO intercepta (multiplayer intacto)
+   - notificações locais: clique foca o app
+   - update: novo SW fica em espera; o app avisa e ativa quando o jogador tocar */
+const CACHE = 'domino-v2';
 const SHELL = [
   './',
   './index.html',
@@ -16,7 +15,6 @@ const SHELL = [
 ];
 
 self.addEventListener('install', e => {
-  self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {}));
 });
 
@@ -28,17 +26,33 @@ self.addEventListener('activate', e => {
   );
 });
 
+/* o app manda 'skipWaiting' quando o jogador toca em "atualizar" */
+self.addEventListener('message', e => {
+  if (e.data === 'skipWaiting') self.skipWaiting();
+});
+
+/* toque na notificação: volta pro jogo */
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+      for (const c of cs) if ('focus' in c) return c.focus();
+      return self.clients.openWindow('./');
+    })
+  );
+});
+
 self.addEventListener('fetch', e => {
   const req = e.request;
-  if (req.method !== 'GET') return;                          // POST/PATCH/DELETE (Firebase) passam direto
+  if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;           // Firebase e externos: não intercepta
+  if (url.origin !== self.location.origin) return;
 
   const isDoc = req.mode === 'navigate' ||
                 url.pathname.endsWith('/') ||
                 url.pathname.endsWith('index.html');
 
-  if (isDoc) {                                               // rede primeiro (updates), cache reserva (offline)
+  if (isDoc) {
     e.respondWith(
       fetch(req)
         .then(res => {
@@ -51,7 +65,7 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  e.respondWith(                                             // estáticos: cache primeiro
+  e.respondWith(
     caches.match(req).then(cached => {
       const net = fetch(req)
         .then(res => {
