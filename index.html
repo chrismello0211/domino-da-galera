@@ -100,6 +100,7 @@ input{font-family:inherit;}
   transition:transform .12s, border-color .12s, background .12s;
 }
 .avpick svg{width:100%;height:100%;display:block;}
+.avpick img.avimg{width:100%;height:100%;display:block;object-fit:contain;}
 .avpick.on{border-color:var(--amber);background:rgba(242,169,59,.16);transform:scale(1.12);}
 .avpick:active{transform:scale(.94);}
 .menu-btns{display:flex;flex-direction:column;gap:10px;align-items:center;margin-top:4px;}
@@ -171,6 +172,7 @@ input{font-family:inherit;}
 .seat.t1{border-color:rgba(127,168,201,.5);}
 .seat .sav{width:44px;height:44px;flex:0 0 auto;border-radius:50%;background:rgba(0,0,0,.3);padding:3px;}
 .seat .sav svg{width:100%;height:100%;}
+.seat .sav img.avimg{width:100%;height:100%;object-fit:contain;}
 .seat .sinfo{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .seat .sname{font-weight:800;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .seat .srole{font-size:11px;font-weight:700;color:var(--muted);}
@@ -277,6 +279,7 @@ input{font-family:inherit;}
   position:relative;transition:box-shadow .2s;
 }
 .avatar svg{width:100%;height:100%;display:block;}
+.avatar img.avimg{width:100%;height:100%;display:block;object-fit:contain;}
 .avatar .avslot{display:block;width:100%;height:100%;animation:breathe 4.4s ease-in-out infinite;transform-origin:50% 88%;}
 #meAv>svg{animation:breathe 4.4s ease-in-out .6s infinite;transform-origin:50% 88%;}
 @keyframes breathe{50%{transform:translateY(-1.5px) scale(1.02);}}
@@ -445,6 +448,9 @@ input{font-family:inherit;}
   background:rgba(0,0,0,.28);border-radius:12px;padding:8px 12px;margin-top:4px;}
 .teamsum .win{color:var(--amber2);}
 
+.bgmini{display:block;width:44px;height:44px;border-radius:9px;border:2px solid rgba(0,0,0,.35);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);}
+
 /* placar histórico */
 .histbox{max-height:min(38dvh,300px);overflow-y:auto;margin:10px 0 2px;display:flex;flex-direction:column;gap:6px;}
 .histrow{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.22);border-radius:10px;
@@ -607,7 +613,7 @@ input{font-family:inherit;}
   .oname{font-size:10px;max-width:64px;}
   .mback{width:7px;height:13px;}
   #dorme .mback{width:10px;height:19px;}
-  #propSlot{right:auto;left:8px;top:auto;bottom:8px;width:36px;opacity:.55;}
+  #propSlot{right:auto;left:8px;top:6px;bottom:auto;width:34px;opacity:.5;}
   /* ===== deitado NATIVO: mão vira coluna na direita, mesa fica com o resto ===== */
   #game{display:grid;grid-template-columns:1fr 118px;grid-template-rows:auto 1fr;
         grid-template-areas:"top top" "board rail";}
@@ -646,7 +652,7 @@ input{font-family:inherit;}
         padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);}
   #topbar{grid-area:top;}
   #board{grid-area:board;}
-  #propSlot{right:auto;left:12px;top:auto;bottom:12px;width:46px;opacity:.6;}
+  #propSlot{right:auto;left:12px;top:10px;bottom:auto;width:44px;opacity:.55;}
   #handbar{grid-area:rail;min-height:0;flex-direction:column;justify-content:flex-start;gap:8px;
     padding:12px 9px calc(12px + env(safe-area-inset-bottom)) 9px;
     box-shadow:-5px 0 16px rgba(0,0,0,.5), inset 3px 0 0 rgba(255,255,255,.07);}
@@ -847,7 +853,7 @@ input{font-family:inherit;}
   <button id="btnTheme" class="ghostbtn">🎨 Personalizar</button>
   <div class="specs">sem cadastro · sem anúncios
     <span id="statsLine" class="hidden" style="display:block;margin-top:6px;color:var(--amber2)"></span>
-    <span class="verline" style="display:block;margin-top:4px;font-size:10px;opacity:.4">v2026.07.16</span></div>
+    <span class="verline" style="display:block;margin-top:4px;font-size:10px;opacity:.4">v2026.07.16b</span></div>
 </div>
 
 <!-- ============ SALA DE ESPERA ============ -->
@@ -1505,7 +1511,11 @@ const AVATARS = [
   { id: 'rosinha',  n: 'Rosinha' },
   { id: 'nino',     n: 'Seu Nino' },
   { id: 'loro',     n: 'Loro' },
-  { id: 'neno',     n: 'Neno' }
+  { id: 'neno',     n: 'Neno' },
+  { id: 'bibi',     n: 'Bibi' },
+  { id: 'neide',    n: 'Dona Neide' },
+  { id: 'valdo',    n: 'Seu Valdo' },
+  { id: 'pipo',     n: 'Pipo' }
 ];
 const AV_NAME = Object.fromEntries(AVATARS.map(a => [a.id, a.n]));
 // cada persona tem vários nomes possíveis — a mesa nunca é igual
@@ -1517,10 +1527,17 @@ const NAME_POOL = {
   rosinha:  ['Rosa', 'Cida', 'Flor', 'Rita', 'Lelê', 'Bel', 'Lia', 'Ana', 'Nina', 'Isis'],
   loro:     ['Loro', 'Grito', 'Zeca', 'Kako', 'Piu', 'Bino', 'Juba', 'Louro', 'Penca', 'Curru'],
   caramelo: ['Bilu', 'Bidu', 'Totó', 'Rex', 'Fubá', 'Paçoca', 'Pipoca', 'Bolota', 'Farofa', 'Nick'],
-  neno:     ['Neno', 'Dudu', 'Vini', 'Kadu', 'Gugu', 'Davi', 'Hugo', 'Yuri', 'Ícaro', 'Théo']
+  neno:     ['Neno', 'Dudu', 'Vini', 'Kadu', 'Gugu', 'Davi', 'Hugo', 'Yuri', 'Ícaro', 'Théo'],
+  bibi:     ['Bibi', 'Duda', 'Lara', 'Maju', 'Alice', 'Lívia', 'Maya', 'Clara', 'Sofia', 'Aninha'],
+  neide:    ['Neide', 'Zilda', 'Fátima', 'Nena', 'Graça', 'Lúcia', 'Vera', 'Célia', 'Ivone', 'Penha'],
+  valdo:    ['Valdo', 'Nelson', 'Wilson', 'Jorge', 'Dilson', 'Ivan', 'Paulo', 'Enéas', 'Milton', 'Braz'],
+  pipo:     ['Pipo', 'Nico', 'Tato', 'Biel', 'Enzo', 'Cauã', 'Levi', 'Miguel', 'Bento', 'Chico']
 };
 const botName = av => pickFresh('nome:' + av, NAME_POOL[av] || [AV_NAME[av]]);
-const avSVG = id => `<svg aria-hidden="true"><use href="#av-${id}"></use></svg>`;
+const ILLUS = new Set(['zefa', 'nino', 'rosinha', 'beto', 'tiao', 'bibi', 'neide', 'valdo', 'neno', 'pipo']);
+const avSVG = id => ILLUS.has(id)
+  ? `<img class="avimg" src="av/${id}.webp" alt="" draggable="false">`
+  : `<svg aria-hidden="true"><use href="#av-${id}"></use></svg>`;
 
 /* falas prontas — cada persona tem seu jeito; 'generic' cobre o resto */
 const FR = {
@@ -2905,6 +2922,34 @@ function applyTheme(t, save){
   rerollAmbience();
   if (save) store.set('dom_theme', t.id);
 }
+/* ===== fundo da mesa (texturas ilustradas, combinam com qualquer tema) ===== */
+const FELT_NOISE = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")`;
+const BGS = [
+  { id: 'auto',    n: 'Do tema' },
+  { id: 'feltro',  n: 'Feltro' },
+  { id: 'madeira', n: 'Madeira' },
+  { id: 'toalha',  n: 'Toalha da vó' },
+  { id: 'azulejo', n: 'Azulejo' },
+  { id: 'areia',   n: 'Beira de praia' },
+  { id: 'couro',   n: 'Couro' }
+];
+let curBg = BGS[0];
+function applyBg(bg, save){
+  curBg = bg;
+  document.querySelectorAll('.felt').forEach(f => {
+    if (bg.id === 'auto') { f.style.background = ''; return; }
+    f.style.background = [
+      FELT_NOISE,
+      'radial-gradient(120% 90% at 50% 28%, rgba(255,214,140,.10), transparent 60%)',
+      'linear-gradient(rgba(8,12,9,.30), rgba(8,12,9,.40))',
+      `url('bg/${bg.id}.jpg') center/cover no-repeat`,
+      'var(--felt2)'
+    ].join(',');
+  });
+  if (save) store.set('dom_bg', bg.id);
+}
+const initialBg = () => BGS.find(b => b.id === store.get('dom_bg')) || BGS[0];
+
 function initialTheme(){
   const saved = store.get('dom_theme');
   return THEMES.find(t => t.id === saved) || themeOfDay();
@@ -2942,6 +2987,12 @@ function customize(){
   const m = showModal(`<h2>Personalizar</h2>
     <div class="seclab">Mesa</div><div class="themes">${cards}</div>
     <div class="seclab">Pedras</div><div class="skinrow">${chips}</div>
+    <div class="seclab">Fundo da mesa</div><div class="skinrow">${BGS.map(b => `
+      <div class="skinchip bgchip ${b.id === curBg.id ? 'on' : ''}" data-bg="${b.id}">
+        <span class="bgmini" style="${b.id === 'auto'
+          ? 'background:radial-gradient(130% 110% at 50% 30%, var(--felt1), var(--felt2) 88%)'
+          : `background:url('bg/${b.id}.jpg') center/cover`}"></span>
+        <span class="sn">${b.n}</span></div>`).join('')}</div>
     <div class="seclab">Tamanho das pedras</div><div class="skinrow">${SIZES.map(s => `
       <div class="skinchip sizechip ${s.id === curSize.id ? 'on' : ''}" data-sz="${s.id}">
         <span class="szmini" style="width:${Math.round(19 * s.k)}px;height:${Math.round(38 * s.k)}px"></span>
@@ -2953,7 +3004,10 @@ function customize(){
   m.querySelectorAll('.themecard').forEach(c => c.onclick = () => {
     SND.tap(); applyTheme(THEMES.find(x => x.id === c.dataset.th), true); customize();
   });
-  m.querySelectorAll('.skinchip:not(.sizechip)').forEach(c => c.onclick = () => {
+  m.querySelectorAll('.bgchip').forEach(c => c.onclick = () => {
+    SND.tap(); applyBg(BGS.find(x => x.id === c.dataset.bg), true); customize();
+  });
+  m.querySelectorAll('.skinchip:not(.sizechip):not(.bgchip)').forEach(c => c.onclick = () => {
     SND.tap(); applySkin(SKINS.find(x => x.id === c.dataset.sk), true); customize();
   });
   m.querySelectorAll('.sizechip').forEach(c => c.onclick = () => {
@@ -4568,11 +4622,11 @@ function inviteText(){
 }
 
 const APP_NEWS = [
-  '📊 <b>Placar</b> novo no menu: histórico das partidas, sequência e rivalidade',
+  '🖼️ <b>Retratos novos</b> desenhados: a galera ganhou cara (escolhe o seu no menu!)',
+  '🪵 <b>Fundos de mesa</b>: toalha da vó, azulejo, madeira e mais, no Personalizar',
+  '📊 <b>Placar</b> com histórico, sequência e rivalidade',
   '📤 <b>Compartilhar</b> o resultado como imagem no fim da partida',
   '🔔 Aviso no celular quando <b>é a sua vez</b> (mesa online)',
-  '🥤 O cafezinho voltou pra mesa no celular deitado',
-  '🔒 Tranca do 6 pedras + dorme: vence a <b>menor mão</b>',
 ];
 function newsCheck(){
   const vEl = document.querySelector('.verline');
@@ -4590,6 +4644,7 @@ function newsCheck(){
 function boot(){
   applyTheme(initialTheme());
   applySkin(initialSkin());
+  applyBg(initialBg());
   hintsOn = store.get('dom_hints') !== '0';
   newsCheck();
   try {
@@ -4775,7 +4830,7 @@ function boot(){
     if (NOTIF.ok() && Notification.permission === 'default') bN.hidden = false;
     bN.onclick = async () => { SND.tap(); await NOTIF.ask(); bN.hidden = true; };
   }
-  if (location.search.includes('debug')) window.__D = { view, CORE, NET, ON, LOCAL, startLocal, processG, applyTheme, applySkin, THEMES, SKINS, customize, SND, moveSeat, MODE_LIST, modeMenu, requestPause, doResume, spawnDrift, rerollProp: rerollAmbience, applySize, SIZES, CHAT, pickFresh, FR, HIST, NOTIF, shareResult, loadHist, newsCheck };
+  if (location.search.includes('debug')) window.__D = { view, CORE, NET, ON, LOCAL, startLocal, processG, applyTheme, applySkin, THEMES, SKINS, customize, SND, moveSeat, MODE_LIST, modeMenu, requestPause, doResume, spawnDrift, rerollProp: rerollAmbience, applySize, SIZES, CHAT, pickFresh, FR, HIST, NOTIF, shareResult, loadHist, newsCheck, applyBg, BGS, ILLUS };
 }
 boot();
 </script>

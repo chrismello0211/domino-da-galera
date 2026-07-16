@@ -4,14 +4,16 @@
    - Firebase e cross-origin: NÃO intercepta (multiplayer intacto)
    - notificações locais: clique foca o app
    - update: novo SW fica em espera; o app avisa e ativa quando o jogador tocar */
-const CACHE = 'domino-v2';
+const CACHE = 'domino-v3';
 const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
-  './icon-maskable-512.png'
+  './icon-maskable-512.png',
+  './av/zefa.webp', './av/nino.webp', './av/rosinha.webp', './av/beto.webp', './av/tiao.webp',
+  './av/bibi.webp', './av/neide.webp', './av/valdo.webp', './av/neno.webp', './av/pipo.webp'
 ];
 
 self.addEventListener('install', e => {
